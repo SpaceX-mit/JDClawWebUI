@@ -1,6 +1,7 @@
-import { LitElement, html, css } from 'lit';
+import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { Session, Agent, Model } from '../types/index.js';
+import type { Agent, Model, SidebarSessionItem, ContextMenuItem } from '../types/index.js';
+import './jd-context-menu.js';
 
 @customElement('jd-sidebar')
 export class JDSidebar extends LitElement {
@@ -167,6 +168,20 @@ export class JDSidebar extends LitElement {
       color: white;
     }
 
+    .session-title-input {
+      width: 100%;
+      padding: 2px 4px;
+      border: 1px solid var(--jd-primary, #4f46e5);
+      border-radius: 4px;
+      background: var(--jd-bg-secondary, #f9fafb);
+      color: var(--jd-text-primary, #111827);
+      font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
+      outline: none;
+      box-sizing: border-box;
+    }
+
     .agent-selector {
       padding: 12px;
       border-top: 1px solid var(--jd-border, #e5e7eb);
@@ -202,7 +217,7 @@ export class JDSidebar extends LitElement {
     }
   `;
 
-  @property({ type: Array }) sessions: Session[] = [];
+  @property({ type: Array }) sessions: SidebarSessionItem[] = [];
   @property({ type: String }) currentSessionKey = '';
   @property({ type: Array }) agents: Agent[] = [];
   @property({ type: Object }) currentAgent: Agent | null = null;
@@ -210,12 +225,20 @@ export class JDSidebar extends LitElement {
   @property({ type: String }) selectedModel = '';
 
   @state() private sessionsExpanded = true;
+  @state() private editingSessionKey: string | null = null;
+  @state() private contextMenu: { open: boolean; x: number; y: number; sessionKey: string } | null = null;
+
+  private readonly _contextMenuItems: ContextMenuItem[] = [
+    { id: 'rename', label: '重命名' },
+    { id: 'delete', label: '删除', danger: true },
+  ];
 
   private handleNewChat() {
     this.dispatchEvent(new CustomEvent('new-session', { bubbles: true, composed: true }));
   }
 
-  private handleSessionClick(session: Session) {
+  private handleSessionClick(session: SidebarSessionItem) {
+    if (this.editingSessionKey) return;
     this.dispatchEvent(new CustomEvent('session-select', {
       detail: session,
       bubbles: true,
@@ -223,13 +246,90 @@ export class JDSidebar extends LitElement {
     }));
   }
 
-  private handleDeleteSession(e: Event, session: Session) {
+  private handleDeleteSession(e: Event, session: SidebarSessionItem) {
     e.stopPropagation();
     this.dispatchEvent(new CustomEvent('delete-session', {
       detail: session,
       bubbles: true,
       composed: true
     }));
+  }
+
+  // ── Inline rename ──
+
+  private _startRename(key: string) {
+    this.editingSessionKey = key;
+  }
+
+  private _commitRename(key: string, label: string) {
+    this.editingSessionKey = null;
+    const trimmed = label.trim();
+    if (!trimmed) return;
+    this.dispatchEvent(new CustomEvent('rename-session', {
+      detail: { key, label: trimmed },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  private _cancelRename() {
+    this.editingSessionKey = null;
+  }
+
+  private _handleRenameKeyDown(e: KeyboardEvent, key: string) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      this._commitRename(key, (e.target as HTMLInputElement).value);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      this._cancelRename();
+    }
+  }
+
+  private _handleRenameBlur(e: FocusEvent, key: string) {
+    this._commitRename(key, (e.target as HTMLInputElement).value);
+  }
+
+  private _handleDblClick(e: Event, key: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    this._startRename(key);
+  }
+
+  // ── Context menu ──
+
+  private _handleContextMenu(e: MouseEvent, session: SidebarSessionItem) {
+    e.preventDefault();
+    e.stopPropagation();
+    this.contextMenu = { open: true, x: e.clientX, y: e.clientY, sessionKey: session.key };
+  }
+
+  private _handleMenuSelect(e: CustomEvent<{ id: string }>) {
+    const action = e.detail.id;
+    const key = this.contextMenu?.sessionKey;
+    this.contextMenu = null;
+    if (!key) return;
+
+    const session = this.sessions.find(s => s.key === key);
+    if (!session) return;
+
+    if (action === 'rename') {
+      this._startRename(key);
+    } else if (action === 'delete') {
+      this.dispatchEvent(new CustomEvent('delete-session', {
+        detail: session,
+        bubbles: true,
+        composed: true,
+      }));
+    }
+  }
+
+  private _handleMenuClose() {
+    this.contextMenu = null;
+  }
+
+  private _sessionLabel(session: SidebarSessionItem): string {
+    return session.displayName || session.title || session.key;
   }
 
   private handleAgentChange(e: Event) {
@@ -278,44 +378,18 @@ export class JDSidebar extends LitElement {
         <div class="section-title" @click=${() => this.sessionsExpanded = !this.sessionsExpanded}>
           <span>会话</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            ${this.sessionsExpanded 
+            ${this.sessionsExpanded
               ? html`<polyline points="18 15 12 9 6 15"></polyline>`
               : html`<polyline points="6 9 12 15 18 9"></polyline>`
             }
           </svg>
         </div>
-        
+
         ${this.sessionsExpanded ? html`
           <div class="session-list">
-            ${this.sessions.map(session => html`
-              <div 
-                class="session-item ${session.key === this.currentSessionKey ? 'active' : ''}"
-                @click=${() => this.handleSessionClick(session)}
-              >
-                <svg class="session-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                </svg>
-                <div class="session-info">
-                  <div class="session-title">${session.title}</div>
-                  <div class="session-meta">
-                    <span class="session-time">${this.formatTime(session.updatedAt)}</span>
-                    <span class="session-count">${session.messageCount} 条消息</span>
-                  </div>
-                </div>
-                <button 
-                  class="session-delete" 
-                  @click=${(e: Event) => this.handleDeleteSession(e, session)}
-                  title="删除会话"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                  </svg>
-                </button>
-              </div>
-            `)}
+            ${this.sessions.map(session => this._renderSessionItem(session))}
           </div>
-        ` : null}
+        ` : nothing}
       </div>
 
       <div class="agent-selector">
@@ -337,7 +411,80 @@ export class JDSidebar extends LitElement {
           `)}
         </select>
       </div>
+
+      ${this.contextMenu?.open ? html`
+        <jd-context-menu
+          .items=${this._contextMenuItems}
+          .open=${true}
+          .x=${this.contextMenu.x}
+          .y=${this.contextMenu.y}
+          @menu-select=${this._handleMenuSelect}
+          @menu-close=${this._handleMenuClose}
+        ></jd-context-menu>
+      ` : nothing}
     `;
+  }
+
+  private _renderSessionItem(session: SidebarSessionItem) {
+    const isEditing = this.editingSessionKey === session.key;
+    const label = this._sessionLabel(session);
+
+    return html`
+      <div
+        class="session-item ${session.key === this.currentSessionKey ? 'active' : ''}"
+        @click=${() => this.handleSessionClick(session)}
+        @dblclick=${(e: Event) => this._handleDblClick(e, session.key)}
+        @contextmenu=${(e: MouseEvent) => this._handleContextMenu(e, session)}
+      >
+        <svg class="session-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <div class="session-info">
+          ${isEditing ? html`
+            <input
+              class="session-title-input"
+              .value=${label}
+              @keydown=${(e: KeyboardEvent) => this._handleRenameKeyDown(e, session.key)}
+              @blur=${(e: FocusEvent) => this._handleRenameBlur(e, session.key)}
+              @click=${(e: Event) => e.stopPropagation()}
+            />
+          ` : html`
+            <div class="session-title">${label}</div>
+          `}
+          <div class="session-meta">
+            ${session.updatedAt ? html`
+              <span class="session-time">${this.formatTime(session.updatedAt)}</span>
+            ` : nothing}
+            ${session.messageCount != null ? html`
+              <span class="session-count">${session.messageCount} 条消息</span>
+            ` : nothing}
+          </div>
+        </div>
+        <button
+          class="session-delete"
+          @click=${(e: Event) => this.handleDeleteSession(e, session)}
+          title="删除会话"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
+      </div>
+    `;
+  }
+
+  protected updated(changed: Map<string, unknown>): void {
+    if (changed.has('editingSessionKey') && this.editingSessionKey) {
+      // Auto-focus the rename input after render
+      requestAnimationFrame(() => {
+        const input = this.shadowRoot?.querySelector('.session-title-input') as HTMLInputElement | null;
+        if (input) {
+          input.focus();
+          input.select();
+        }
+      });
+    }
   }
 }
 

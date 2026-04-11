@@ -289,3 +289,31 @@ export interface ModelSettings {
   temperature: number;
   maxTokens: number;
 }
+
+// ============================================
+// Context Menu Types
+// ============================================
+
+export interface ContextMenuItem {
+  id: string;
+  label: string;
+  icon?: string;
+  danger?: boolean;
+  disabled?: boolean;
+}
+
+export interface ContextMenuPosition {
+  x: number;
+  y: number;
+}
+
+// Flexible session row type that works with both Session and GatewaySessionRow
+export interface SidebarSessionItem {
+  key: string;
+  displayName?: string;
+  title?: string;
+  updatedAt?: number;
+  lastChannel?: string;
+  status?: string;
+  messageCount?: number;
+}

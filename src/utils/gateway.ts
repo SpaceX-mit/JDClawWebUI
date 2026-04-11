@@ -265,3 +265,32 @@ export async function toolsCatalog(client: GatewayClient): Promise<{
 }> {
   return client.request('tools.catalog') as Promise<{ tools: unknown[] }>;
 }
+
+// ─── Session Management ─────────────────────────────────────────────────────
+
+export interface SessionsPatchParams {
+  key: string;
+  label?: string | null;
+  model?: string | null;
+  thinkingLevel?: string | null;
+  [key: string]: unknown;
+}
+
+export async function sessionsPatch(client: GatewayClient, params: SessionsPatchParams): Promise<{
+  ok: boolean;
+  key: string;
+}> {
+  return client.request('sessions.patch', params) as Promise<{ ok: boolean; key: string }>;
+}
+
+export interface SessionsDeleteParams {
+  key: string;
+  deleteTranscript?: boolean;
+  [key: string]: unknown;
+}
+
+export async function sessionsDelete(client: GatewayClient, params: SessionsDeleteParams): Promise<{
+  ok: boolean;
+}> {
+  return client.request('sessions.delete', params) as Promise<{ ok: boolean }>;
+}

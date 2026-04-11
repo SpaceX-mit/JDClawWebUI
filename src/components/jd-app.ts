@@ -1,12 +1,17 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { icons } from '../icons.js';
-import type { Attachment, Message, SessionsListResult } from '../types/index.js';
+import type { Attachment, Message, SessionsListResult, SidebarSessionItem } from '../types/index.js';
 import {
   buildDeviceAuthPayload,
   loadOrCreateDeviceIdentity,
   signDevicePayload,
 } from '../utils/crypto.js';
+import { loadSettings, saveSettings } from '../utils/settings.js';
+import { JdToast } from './jd-toast.js';
+import { JdConfirmDialog } from './jd-confirm-dialog.js';
+import './jd-sidebar.js';
+import './jd-chat-view.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -270,6 +275,7 @@ export class JdApp extends LitElement {
   private pendingRequests = new Map<string, PendingRequestMeta>();
   private deviceIdentityPromise: ReturnType<typeof loadOrCreateDeviceIdentity> | null = null;
   private gatewayToken: string | null = null;
+  private pendingDeleteKey: string | null = null;
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -280,6 +286,13 @@ export class JdApp extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.gatewayToken = resolveGatewayToken();
+
+    // Restore settings
+    const settings = loadSettings();
+    if (settings.lastSessionKey) {
+      this.appState = { ...this.appState, sessionKey: settings.lastSessionKey };
+    }
+
     this.connect();
     this.startSessionPoll();
   }
@@ -723,8 +736,32 @@ export class JdApp extends LitElement {
           chatMessage: '',
         };
         this.resetChatInputHeight();
+        saveSettings({ lastSessionKey: key });
         this.requestSessions();
         this.requestChatHistory();
+        return;
+      }
+
+      case 'sessions.patch': {
+        JdToast.show({ message: '会话已重命名', type: 'success', duration: 2000 });
+        this.requestSessions();
+        return;
+      }
+
+      case 'sessions.delete': {
+        const deletedKey = this.pendingDeleteKey;
+        this.pendingDeleteKey = null;
+        JdToast.show({ message: '会话已删除', type: 'success', duration: 2000 });
+
+        // If deleted the current session, switch to another
+        if (deletedKey === this.appState.sessionKey || !this.appState.sessions.some(s => s.key === this.appState.sessionKey)) {
+          const remaining = this.appState.sessions.filter(s => s.key !== deletedKey);
+          const nextKey = remaining.length > 0
+            ? (remaining.find(s => s.key === DEFAULT_SESSION_KEY)?.key ?? remaining[0].key)
+            : DEFAULT_SESSION_KEY;
+          this.handleSessionSelect(nextKey);
+        }
+        this.requestSessions();
         return;
       }
 
@@ -915,6 +952,7 @@ export class JdApp extends LitElement {
       runId: null,
     };
     this.resetChatInputHeight();
+    saveSettings({ lastSessionKey: key });
     if (this.appState.connected) {
       this.requestChatHistory();
     }
@@ -942,9 +980,62 @@ export class JdApp extends LitElement {
     }
   }
 
-  private resizeChatInput(textarea: HTMLTextAreaElement) {
-    textarea.style.height = 'auto';
-    textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+  private handleRenameSession(key: string, label: string) {
+    if (!this.appState.connected) return;
+    this.sendRequest('sessions.patch', { key, label });
+  }
+
+  private async handleDeleteSession(key: string) {
+    const confirmed = await JdConfirmDialog.confirm({
+      title: '删除会话',
+      message: '确定要删除这个会话吗？此操作不可恢复。',
+      confirmText: '删除',
+      cancelText: '取消',
+      variant: 'danger',
+    });
+    if (!confirmed || !this.appState.connected) return;
+
+    this.pendingDeleteKey = key;
+    this.sendRequest('sessions.delete', { key });
+  }
+
+  private handleRetryMessage() {
+    // Find the last user message and resend it
+    const lastUserMsg = [...this.appState.messages].reverse().find(m => m.role === 'user');
+    if (!lastUserMsg || !this.appState.connected) return;
+
+    // Remove the last assistant message
+    let lastAssistantIdx = -1;
+    for (let i = this.appState.messages.length - 1; i >= 0; i--) {
+      if (this.appState.messages[i].role === 'assistant') {
+        lastAssistantIdx = i;
+        break;
+      }
+    }
+    const messages = lastAssistantIdx >= 0
+      ? this.appState.messages.filter((_, i) => i !== lastAssistantIdx)
+      : this.appState.messages;
+
+    const runId = crypto.randomUUID();
+    this.appState = {
+      ...this.appState,
+      messages,
+      sending: true,
+      runId,
+      stream: null,
+      streamStartedAt: Date.now(),
+    };
+
+    this.sendRequest('chat.send', {
+      sessionKey: this.appState.sessionKey,
+      message: lastUserMsg.content,
+      deliver: true,
+      idempotencyKey: runId,
+    });
+  }
+
+  private handleCopySuccess() {
+    JdToast.show({ message: '已复制到剪贴板', type: 'success', duration: 2000 });
   }
 
   private resetChatInputHeight() {
@@ -982,141 +1073,6 @@ export class JdApp extends LitElement {
     `;
   }
 
-  private renderWelcome() {
-    return html`
-      <div class="chat-welcome">
-        <div class="chat-welcome__glow"></div>
-        <div class="chat-welcome__avatar">
-          <img src="/logo.svg" alt="JDClaw" />
-        </div>
-        <h2>JDClaw 助手</h2>
-        <div class="chat-welcome__badges">
-          <span class="chat-welcome__badge">✨ Ready to chat</span>
-        </div>
-        <p class="chat-welcome__hint">在下方输入消息开始对话 · <kbd>/</kbd> 查看命令</p>
-      </div>
-    `;
-  }
-
-  private renderMessages() {
-    return html`
-      <div class="chat-messages">
-        ${this.appState.messages.map((msg) => this.renderMessage(msg))}
-        ${this.appState.stream ? this.renderStreaming() : nothing}
-      </div>
-    `;
-  }
-
-  private renderMessage(msg: Message) {
-    const isUser = msg.role === 'user';
-    const time = msg.timestamp
-      ? new Date(msg.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-      : '';
-
-    return html`
-      <div class="chat-line ${isUser ? 'user' : 'assistant'}">
-        <div class="chat-bubble">
-          <div class="chat-bubble__content">${msg.content}</div>
-          ${time ? html`<div class="chat-bubble__time">${time}</div>` : nothing}
-        </div>
-      </div>
-    `;
-  }
-
-  private renderStreaming() {
-    return html`
-      <div class="chat-line assistant streaming">
-        <div class="chat-bubble">
-          <div class="chat-bubble__content">${this.appState.stream}<span class="cursor">▊</span></div>
-        </div>
-      </div>
-    `;
-  }
-
-  private renderInput() {
-    const canSend = this.appState.connected && !this.appState.sending;
-    const activeSessionLabel =
-      this.appState.sessions.find((session) => session.key === this.appState.sessionKey)?.displayName ||
-      this.appState.sessionKey;
-    const placeholder = this.appState.connected
-      ? `消息 ${activeSessionLabel} (Enter 发送)`
-      : '连接后可开始聊天...';
-
-    return html`
-      <div class="chat-input">
-        <textarea
-          class="chat-input__textarea"
-          placeholder=${placeholder}
-          ?disabled=${!canSend}
-          .value=${this.appState.chatMessage}
-          @input=${(e: InputEvent) => {
-            const textarea = e.target as HTMLTextAreaElement;
-            this.handleInputChange(textarea.value);
-            this.resizeChatInput(textarea);
-          }}
-          @keydown=${(e: KeyboardEvent) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              this.handleSend();
-            }
-          }}
-          rows="1"
-        ></textarea>
-        <div class="chat-input__actions">
-          ${this.appState.sending
-            ? html`
-                <button class="btn btn--danger" @click=${this.handleAbort} title="停止">
-                  ${icons.stop}
-                </button>
-              `
-            : html`
-                <button
-                  class="btn btn--primary"
-                  ?disabled=${!canSend || !this.appState.chatMessage.trim()}
-                  @click=${this.handleSend}
-                  title="发送"
-                >
-                  ${icons.send}
-                </button>
-              `}
-        </div>
-      </div>
-    `;
-  }
-
-  private renderSessionsList() {
-    const sessions = this.appState.sessions.slice(0, 20);
-
-    return html`
-      <div class="sessions-list">
-        <div class="sessions-list__header">
-          <span>会话列表</span>
-          <button class="btn btn--ghost btn--sm" @click=${this.handleNewSession}>
-            ${icons.plus} 新建
-          </button>
-        </div>
-        <div class="sessions-list__items">
-          ${sessions.map(
-            (session) => html`
-              <div
-                class="sessions-list__item ${session.key === this.appState.sessionKey
-                  ? 'active'
-                  : ''}"
-                @click=${() => this.handleSessionSelect(session.key)}
-              >
-                <div class="sessions-list__name">${session.displayName || session.key}</div>
-                <div class="sessions-list__meta">
-                  ${session.lastChannel || 'webchat'}
-                  ${session.status ? html` · ${session.status}` : nothing}
-                </div>
-              </div>
-            `,
-          )}
-        </div>
-      </div>
-    `;
-  }
-
   // ── Main Render ─────────────────────────────────────────────────────────────
 
   render() {
@@ -1131,30 +1087,18 @@ export class JdApp extends LitElement {
       return this.renderError();
     }
 
-    const hasMessages = this.appState.messages.length > 0 || this.appState.stream;
-
     return html`
       <div class="jd-shell">
         <!-- Sidebar -->
         <aside class="jd-sidebar ${this.navOpen ? '' : 'collapsed'}">
-          <div class="jd-sidebar__header">
-            <div class="jd-brand">
-              <img class="jd-brand__logo" src="/logo.svg" alt="JDClaw" />
-              <span class="jd-brand__name">JDClaw</span>
-            </div>
-            <button class="btn btn--ghost btn--icon" @click=${() => this.navOpen = !this.navOpen}>
-              ${icons.panelLeft}
-            </button>
-          </div>
-          <div class="jd-sidebar__body">
-            ${this.renderSessionsList()}
-          </div>
-          <div class="jd-sidebar__footer">
-            <div class="jd-status ${this.appState.connected ? 'connected' : 'disconnected'}">
-              <span class="jd-status__dot"></span>
-              <span>${this.appState.connected ? '已连接' : '未连接'}</span>
-            </div>
-          </div>
+          <jd-sidebar
+            .sessions=${this.appState.sessions as SidebarSessionItem[]}
+            .currentSessionKey=${this.appState.sessionKey}
+            @new-session=${() => this.handleNewSession()}
+            @session-select=${(e: CustomEvent) => this.handleSessionSelect(e.detail.key)}
+            @delete-session=${(e: CustomEvent) => this.handleDeleteSession(e.detail.key)}
+            @rename-session=${(e: CustomEvent) => this.handleRenameSession(e.detail.key, e.detail.label)}
+          ></jd-sidebar>
         </aside>
 
         <!-- Main Content -->
@@ -1185,12 +1129,22 @@ export class JdApp extends LitElement {
           </header>
 
           <!-- Chat Area -->
-          <div class="jd-chat">
-            <div class="jd-chat__messages">
-              ${hasMessages ? this.renderMessages() : this.renderWelcome()}
-            </div>
-            ${this.renderInput()}
-          </div>
+          <jd-chat-view
+            .messages=${this.appState.messages}
+            .streamingText=${this.appState.stream}
+            .sending=${this.appState.sending}
+            .attachments=${this.appState.chatAttachments}
+            .draft=${this.appState.chatMessage}
+            .focusMode=${this.focusMode}
+            @send=${(e: CustomEvent) => {
+              this.appState = { ...this.appState, chatMessage: e.detail };
+              this.handleSend();
+            }}
+            @abort=${() => this.handleAbort()}
+            @draft-change=${(e: CustomEvent) => this.handleInputChange(e.detail)}
+            @retry-message=${() => this.handleRetryMessage()}
+            @copy-success=${() => this.handleCopySuccess()}
+          ></jd-chat-view>
         </main>
       </div>
     `;
