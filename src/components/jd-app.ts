@@ -744,13 +744,14 @@ export class JdApp extends LitElement {
   // ── Main Render ─────────────────────────────────────────────────────────────
 
   render() {
-    console.log('[JdApp] Rendering, connected:', this.appState.connected);
+    console.log('[JdApp] Rendering, connected:', this.appState.connected, 'connecting:', this.appState.connecting);
 
-    if (this.appState.connecting && !this.appState.connected) {
+    // Show loading when connecting or not yet connected (initial state)
+    if (this.appState.connecting || (!this.appState.connected && !this.appState.error)) {
       return this.renderLoading();
     }
 
-    if (this.appState.error && !this.appState.connected) {
+    if (this.appState.error) {
       return this.renderError();
     }
 

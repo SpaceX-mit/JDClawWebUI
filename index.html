@@ -45,17 +45,6 @@
     <div class="initial-loader__text">加载中...</div>
   </div>
   
-  <jd-app></jd-app>
-  
   <script type="module" src="/src/main.ts"></script>
-  <script>
-    // Hide loader once app is ready
-    window.addEventListener('load', () => {
-      setTimeout(() => {
-        const loader = document.getElementById('initial-loader');
-        if (loader) loader.remove();
-      }, 500);
-    });
-  </script>
 </body>
 </html>
