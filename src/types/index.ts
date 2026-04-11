@@ -1,18 +1,16 @@
-// JDClawWebUI Type Definitions
-
-// ============================================
-// Core Types
-// ============================================
-
 export interface Message {
   id: string;
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
   timestamp: number;
   attachments?: Attachment[];
   thinking?: string;
   usage?: TokenUsage;
   stopReason?: string;
+  toolCallId?: string;
+  toolName?: string;
+  toolInput?: Record<string, unknown>;
+  senderLabel?: string;
 }
 
 export interface Attachment {
@@ -21,7 +19,8 @@ export interface Attachment {
   name: string;
   mimeType: string;
   url?: string;
-  data?: string; // base64 for images
+  data?: string;
+  dataUrl?: string;
 }
 
 export interface TokenUsage {
@@ -31,10 +30,6 @@ export interface TokenUsage {
   cacheRead?: number;
   cacheWrite?: number;
 }
-
-// ============================================
-// Session Types
-// ============================================
 
 export interface Session {
   id: string;
@@ -54,7 +49,6 @@ export interface SessionGroup {
   collapsed?: boolean;
 }
 
-// Gateway Session Row (simplified)
 export interface GatewaySessionRow {
   key: string;
   displayName?: string;
@@ -65,6 +59,9 @@ export interface GatewaySessionRow {
   sessionId?: string;
   kind?: string;
   origin?: Record<string, unknown>;
+  contextTokens?: number;
+  reasoningLevel?: ThinkingLevel;
+  totalTokensFresh?: boolean;
 }
 
 export interface SessionsListResult {
@@ -78,10 +75,6 @@ export interface SessionsListResult {
   };
   sessions: GatewaySessionRow[];
 }
-
-// ============================================
-// Model Types
-// ============================================
 
 export interface Model {
   id: string;
@@ -103,19 +96,20 @@ export interface ModelConfig {
   maxTokens?: number;
 }
 
-// ============================================
-// Agent Types
-// ============================================
-
 export interface Agent {
   id: string;
   name: string;
   description?: string;
   avatar?: string;
+  avatarUrl?: string;
   defaultModel?: string;
   skills?: string[];
   createdAt: number;
   updatedAt: number;
+  identity?: {
+    name?: string;
+    avatarUrl?: string;
+  };
 }
 
 export interface AgentSkill {
@@ -125,10 +119,6 @@ export interface AgentSkill {
   enabled: boolean;
   icon?: string;
 }
-
-// ============================================
-// Tool Types
-// ============================================
 
 export interface Tool {
   id: string;
@@ -161,10 +151,6 @@ export interface ToolCall {
   completedAt?: number;
 }
 
-// ============================================
-// UI State Types
-// ============================================
-
 export interface ChatState {
   sessionKey: string;
   messages: Message[];
@@ -189,13 +175,12 @@ export interface UIState {
   commandPaletteOpen: boolean;
 }
 
-export type Theme = 'light' | 'dark' | 'auto';
-export type Tab = 'chat' | 'agents' | 'sessions' | 'tools' | 'settings';
-export type SidebarContent = 'sessions' | 'tools' | 'agents' | null;
+export type Theme = 'light' | 'dark' | 'auto' | 'claw';
+export type ThemeMode = 'light' | 'dark' | 'system';
+export type ThemeName = 'claw' | 'light' | 'dark' | 'midnight' | 'ocean' | 'forest' | 'sunset';
 
-// ============================================
-// Gateway Connection Types
-// ============================================
+export type Tab = 'chat' | 'agents' | 'sessions' | 'tools' | 'settings' | 'overview';
+export type SidebarContent = 'sessions' | 'tools' | 'agents' | 'history' | null;
 
 export interface GatewayConfig {
   url: string;
@@ -216,9 +201,33 @@ export interface GatewayHello {
   snapshot?: unknown;
 }
 
-// ============================================
-// Event Types
-// ============================================
+export interface GatewayHelloOk {
+  type: 'hello-ok';
+  protocol: number;
+  server?: {
+    version?: string;
+    connId?: string;
+  };
+  features?: {
+    methods?: string[];
+    events?: string[];
+  };
+  snapshot?: {
+    presence?: PresenceEntry[];
+    sessionDefaults?: {
+      defaultAgentId?: string;
+      mainKey?: string;
+      mainSessionKey?: string;
+    };
+  };
+}
+
+export interface PresenceEntry {
+  instanceId: string;
+  name: string;
+  platform?: string;
+  lastSeen?: number;
+}
 
 export interface ChatEventPayload {
   runId: string;
@@ -226,6 +235,9 @@ export interface ChatEventPayload {
   state: 'delta' | 'final' | 'aborted' | 'error';
   message?: Message;
   errorMessage?: string;
+  text?: string;
+  content?: string;
+  delta?: string;
 }
 
 export interface AgentEventPayload {
@@ -237,10 +249,6 @@ export interface AgentEventPayload {
   data?: Record<string, unknown>;
 }
 
-// ============================================
-// Command Types
-// ============================================
-
 export interface SlashCommand {
   id: string;
   name: string;
@@ -249,6 +257,9 @@ export interface SlashCommand {
   category: SlashCommandCategory;
   executeLocal?: boolean;
   params?: CommandParam[];
+  icon?: string;
+  args?: string;
+  argOptions?: string[];
 }
 
 export type SlashCommandCategory = 
@@ -267,19 +278,24 @@ export interface CommandParam {
   options?: string[];
 }
 
-// ============================================
-// Settings Types
-// ============================================
-
 export interface AppSettings {
   gatewayUrl: string;
-  theme: Theme;
+  token: string;
+  theme: ThemeName;
+  themeMode: ThemeMode;
   language: string;
   fontSize: 'small' | 'medium' | 'large';
   streamingEnabled: boolean;
   soundEnabled: boolean;
   notificationsEnabled: boolean;
   lastSessionKey?: string;
+  sessionKey: string;
+  chatFocusMode: boolean;
+  chatShowThinking: boolean;
+  chatShowToolCalls: boolean;
+  navCollapsed: boolean;
+  borderRadius: number;
+  splitRatio: number;
 }
 
 export interface ModelSettings {
@@ -287,4 +303,32 @@ export interface ModelSettings {
   defaultThinking: ThinkingLevel;
   temperature: number;
   maxTokens: number;
+}
+
+export interface ChatQueueItem {
+  id: string;
+  text: string;
+  createdAt: number;
+  attachments?: Attachment[];
+  pendingRunId?: string;
+  refreshSessions?: boolean;
+  localCommandName?: string;
+  localCommandArgs?: string;
+}
+
+export interface ToolStreamEntry {
+  id: string;
+  toolId: string;
+  toolName: string;
+  status: 'pending' | 'running' | 'completed' | 'error';
+  input?: Record<string, unknown>;
+  output?: string;
+  startedAt: number;
+  completedAt?: number;
+  error?: string;
+}
+
+export interface GatewayEventFrame {
+  event: string;
+  payload?: Record<string, unknown>;
 }
