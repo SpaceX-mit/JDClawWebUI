@@ -1,32 +1,57 @@
 /* JDClaw WebUI - OpenClaw-style Design */
 
 :root {
-  /* Colors */
+  /* Colors - aligned with OpenClaw design system */
+  --bg: #0e1015;
   --bg-primary: #0a0a0f;
   --bg-secondary: #12121a;
   --bg-tertiary: #1a1a24;
   --bg-hover: #22222e;
   --bg-active: #2a2a38;
-  
+  --bg-elevated: #191c24;
+  --card: #161920;
+
   --text-primary: #f4f4f5;
   --text-secondary: #a1a1aa;
   --text-muted: #71717a;
-  
+  --text-strong: #f4f4f5;
+
   --border: #27272a;
   --border-light: #3f3f46;
-  
+  --border-strong: #2e3040;
+
   --accent: #6366f1;
   --accent-hover: #818cf8;
   --accent-muted: rgba(99, 102, 241, 0.15);
-  
+  --accent-subtle: rgba(99, 102, 241, 0.1);
+
   --success: #22c55e;
   --warning: #f59e0b;
   --danger: #ef4444;
-  
+  --info: #3b82f6;
+
+  --ok: #22c55e;
+  --ok-subtle: rgba(34, 197, 94, 0.08);
+  --warn: #f59e0b;
+  --warn-subtle: rgba(245, 158, 11, 0.08);
+  --danger-subtle: rgba(239, 68, 68, 0.08);
+
   --sidebar-width: 280px;
   --topbar-height: 48px;
-  
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius: 10px;
+
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, monospace;
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.4);
+
+  font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.5;
   color: var(--text-primary);

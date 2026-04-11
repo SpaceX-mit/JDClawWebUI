@@ -1,17 +1,31 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { icons } from '../icons.js';
-import type { Attachment, Message, SessionsListResult, SidebarSessionItem } from '../types/index.js';
+import type {
+  Attachment,
+  ChatStreamSegment,
+  ExecApprovalRequest,
+  Message,
+  SessionsListResult,
+  SidebarSessionItem,
+  ToolStreamEntry,
+} from '../types/index.js';
 import {
   buildDeviceAuthPayload,
   loadOrCreateDeviceIdentity,
   signDevicePayload,
 } from '../utils/crypto.js';
 import { loadSettings, saveSettings } from '../utils/settings.js';
+import { exportChatToMarkdown, downloadTextFile } from '../utils/index.js';
 import { JdToast } from './jd-toast.js';
 import { JdConfirmDialog } from './jd-confirm-dialog.js';
+import { getCurrentRoute, onRouteChange, navigateTo, type Route } from '../utils/router.js';
 import './jd-sidebar.js';
 import './jd-chat-view.js';
+import './jd-tool-card.js';
+import './jd-settings-panel.js';
+import './jd-sessions-view.js';
+import './jd-approval-dialog.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -264,7 +278,11 @@ export class JdApp extends LitElement {
 
   @state() private navOpen = true;
   @state() private focusMode = false;
+  @state() private currentRoute: Route = 'chat';
   @state() private sessionsResult: SessionsListResult | null = null;
+  @state() private toolStreamEntries: ToolStreamEntry[] = [];
+  @state() private chatStreamSegments: ChatStreamSegment[] = [];
+  @state() private execApprovalQueue: ExecApprovalRequest[] = [];
 
   // ── Private ────────────────────────────────────────────────────────────────
 
@@ -276,6 +294,7 @@ export class JdApp extends LitElement {
   private deviceIdentityPromise: ReturnType<typeof loadOrCreateDeviceIdentity> | null = null;
   private gatewayToken: string | null = null;
   private pendingDeleteKey: string | null = null;
+  private unsubscribeRoute: (() => void) | null = null;
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -295,12 +314,19 @@ export class JdApp extends LitElement {
 
     this.connect();
     this.startSessionPoll();
+
+    // Initialize routing
+    this.currentRoute = getCurrentRoute();
+    this.unsubscribeRoute = onRouteChange((route) => {
+      this.currentRoute = route;
+    });
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this.disconnect();
     this.stopSessionPoll();
+    this.unsubscribeRoute?.();
   }
 
   // ── Gateway Connection ──────────────────────────────────────────────────────
@@ -545,6 +571,15 @@ export class JdApp extends LitElement {
           return;
         case 'chat.error':
           this.handleChatEvent({ ...payload, state: 'error' });
+          return;
+        case 'agent':
+          this.handleAgentEvent(payload);
+          return;
+        case 'exec.approval.requested':
+          this.handleExecApprovalRequested(payload);
+          return;
+        case 'exec.approval.resolved':
+          this.handleExecApprovalResolved(payload);
           return;
         case 'sessions.changed':
         case 'sessions.updated':
@@ -825,6 +860,9 @@ export class JdApp extends LitElement {
           stream: null,
           streamStartedAt: null,
         };
+        // Clean up tool/segment state on final
+        this.toolStreamEntries = [];
+        this.chatStreamSegments = [];
         return;
       }
 
@@ -883,6 +921,107 @@ export class JdApp extends LitElement {
         };
       }
     }
+  }
+
+  // ── Agent Event Handling ───────────────────────────────────────────────────
+
+  private handleAgentEvent(payload: Record<string, unknown>) {
+    const stream = typeof payload.stream === 'string' ? payload.stream : '';
+    const runId = typeof payload.runId === 'string' ? payload.runId : '';
+    const sessionKey = typeof payload.sessionKey === 'string' ? payload.sessionKey : '';
+    const data = isRecord(payload.data) ? payload.data : {};
+
+    // Only process events for current session
+    if (sessionKey && sessionKey !== this.appState.sessionKey) return;
+
+    if (stream === 'tool') {
+      this.handleToolStreamEvent(runId, sessionKey, data);
+    }
+  }
+
+  private handleToolStreamEvent(runId: string, sessionKey: string, data: Record<string, unknown>) {
+    const toolCallId = typeof data.toolCallId === 'string' ? data.toolCallId : '';
+    const name = typeof data.name === 'string' ? data.name : '';
+    const phase = typeof data.phase === 'string' ? data.phase : '';
+
+    if (!toolCallId) return;
+
+    if (phase === 'start') {
+      // Commit any in-progress streaming text as a segment
+      if (this.appState.stream) {
+        this.chatStreamSegments = [...this.chatStreamSegments, {
+          type: 'text',
+          id: crypto.randomUUID(),
+          content: this.appState.stream,
+          timestamp: Date.now(),
+        }];
+        this.appState = { ...this.appState, stream: null, streamStartedAt: null };
+      }
+
+      const args = isRecord(data.args) ? data.args as Record<string, unknown> : null;
+      const entry: ToolStreamEntry = {
+        toolCallId,
+        runId,
+        sessionKey,
+        name,
+        args,
+        output: '',
+        startedAt: Date.now(),
+        completedAt: null,
+        status: 'running',
+      };
+      this.toolStreamEntries = [...this.toolStreamEntries, entry];
+
+      this.chatStreamSegments = [...this.chatStreamSegments, {
+        type: 'tool_call',
+        id: toolCallId,
+        content: '',
+        toolCallId,
+        toolName: name,
+        toolArgs: args,
+        timestamp: Date.now(),
+        status: 'running',
+      }];
+    } else if (phase === 'update') {
+      const output = typeof data.output === 'string' ? data.output : '';
+      this.toolStreamEntries = this.toolStreamEntries.map(e =>
+        e.toolCallId === toolCallId ? { ...e, output: e.output + output } : e
+      );
+    } else if (phase === 'result') {
+      const output = typeof data.output === 'string' ? data.output : '';
+      this.toolStreamEntries = this.toolStreamEntries.map(e =>
+        e.toolCallId === toolCallId ? {
+          ...e,
+          output: output || e.output,
+          completedAt: Date.now(),
+          status: 'completed' as const,
+        } : e
+      );
+      this.chatStreamSegments = this.chatStreamSegments.map(s =>
+        s.toolCallId === toolCallId ? { ...s, status: 'completed' as const, content: output || '' } : s
+      );
+    }
+  }
+
+  private handleExecApprovalRequested(payload: Record<string, unknown>) {
+    const id = typeof payload.id === 'string' ? payload.id : crypto.randomUUID();
+    const sessionKey = typeof payload.sessionKey === 'string' ? payload.sessionKey : '';
+    const runId = typeof payload.runId === 'string' ? payload.runId : '';
+    const toolName = typeof payload.toolName === 'string' ? payload.toolName : '';
+    const toolArgs = isRecord(payload.toolArgs) ? payload.toolArgs as Record<string, unknown> : {};
+    const command = typeof payload.command === 'string' ? payload.command : undefined;
+    const expiresAtMs = typeof payload.expiresAtMs === 'number' ? payload.expiresAtMs : Date.now() + 60000;
+
+    this.execApprovalQueue = [...this.execApprovalQueue, {
+      id, sessionKey, runId, toolName, toolArgs, command,
+      expiresAt: expiresAtMs,
+      timestamp: Date.now(),
+    }];
+  }
+
+  private handleExecApprovalResolved(payload: Record<string, unknown>) {
+    const id = typeof payload.id === 'string' ? payload.id : '';
+    this.execApprovalQueue = this.execApprovalQueue.filter(a => a.id !== id);
   }
 
   // ── Chat Actions ────────────────────────────────────────────────────────────
@@ -1038,6 +1177,43 @@ export class JdApp extends LitElement {
     JdToast.show({ message: '已复制到剪贴板', type: 'success', duration: 2000 });
   }
 
+  private handleSlashCommand(e: CustomEvent<{ key: string }>) {
+    const cmd = e.detail.key;
+    switch (cmd) {
+      case 'new':
+        this.handleNewSession();
+        break;
+      case 'stop':
+        this.handleAbort();
+        break;
+      case 'clear':
+        this.appState = { ...this.appState, messages: [] };
+        break;
+      case 'compact':
+        if (this.appState.connected) {
+          this.sendRequest('sessions.compact', { key: this.appState.sessionKey });
+          JdToast.show({ message: '正在压缩历史...', type: 'info' });
+        }
+        break;
+      case 'export': {
+        const md = exportChatToMarkdown(this.appState.messages);
+        downloadTextFile(md, `chat-${this.appState.sessionKey}.md`);
+        break;
+      }
+      default:
+        // Send as slash command to gateway
+        if (this.appState.connected) {
+          this.appState = { ...this.appState, chatMessage: `/${cmd}` };
+          this.handleSend();
+        }
+        break;
+    }
+  }
+
+  private handleRouteChange(e: CustomEvent) {
+    navigateTo(e.detail as Route);
+  }
+
   private resetChatInputHeight() {
     requestAnimationFrame(() => {
       const textarea = this.querySelector('.chat-input__textarea') as HTMLTextAreaElement | null;
@@ -1075,6 +1251,77 @@ export class JdApp extends LitElement {
 
   // ── Main Render ─────────────────────────────────────────────────────────────
 
+  private renderRouteContent() {
+    switch (this.currentRoute) {
+      case 'sessions':
+        return html`
+          <jd-sessions-view
+            .sessions=${this.appState.sessions as SidebarSessionItem[]}
+            @session-select=${(e: CustomEvent) => {
+              this.handleSessionSelect(e.detail.key);
+              navigateTo('chat');
+            }}
+            @delete-session=${(e: CustomEvent) => this.handleDeleteSession(e.detail.key)}
+          ></jd-sessions-view>
+        `;
+      case 'settings':
+        return html`<jd-settings-panel></jd-settings-panel>`;
+      case 'agents':
+        return html`
+          <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);">
+            助手管理（开发中）
+          </div>
+        `;
+      case 'chat':
+      default:
+        return html`
+          <jd-chat-view
+            .messages=${this.appState.messages}
+            .streamingText=${this.appState.stream}
+            .sending=${this.appState.sending}
+            .attachments=${this.appState.chatAttachments}
+            .draft=${this.appState.chatMessage}
+            .focusMode=${this.focusMode}
+            .toolStreamEntries=${this.toolStreamEntries}
+            .chatStreamSegments=${this.chatStreamSegments}
+            @send=${(e: CustomEvent) => {
+              this.appState = { ...this.appState, chatMessage: e.detail };
+              this.handleSend();
+            }}
+            @abort=${() => this.handleAbort()}
+            @draft-change=${(e: CustomEvent) => this.handleInputChange(e.detail)}
+            @retry-message=${() => this.handleRetryMessage()}
+            @copy-success=${() => this.handleCopySuccess()}
+            @slash-command=${(e: CustomEvent) => this.handleSlashCommand(e)}
+          ></jd-chat-view>
+        `;
+    }
+  }
+
+  private renderApprovalQueue() {
+    const approval = this.execApprovalQueue[0];
+    if (!approval) return nothing;
+
+    return html`
+      <jd-approval-dialog
+        .toolName=${approval.toolName}
+        .toolArgs=${approval.toolArgs}
+        .command=${approval.command || ''}
+        .expiresAt=${approval.expiresAt}
+        @approval-resolve=${(e: CustomEvent<{ approved: boolean }>) => {
+          const { approved } = e.detail;
+          if (this.appState.connected) {
+            this.sendRequest('exec.approval.resolve', {
+              id: approval.id,
+              approved,
+            });
+          }
+          this.execApprovalQueue = this.execApprovalQueue.filter(a => a.id !== approval.id);
+        }}
+      ></jd-approval-dialog>
+    `;
+  }
+
   render() {
     console.log('[JdApp] Rendering, connected:', this.appState.connected, 'connecting:', this.appState.connecting);
 
@@ -1094,10 +1341,15 @@ export class JdApp extends LitElement {
           <jd-sidebar
             .sessions=${this.appState.sessions as SidebarSessionItem[]}
             .currentSessionKey=${this.appState.sessionKey}
+            .currentRoute=${this.currentRoute}
             @new-session=${() => this.handleNewSession()}
-            @session-select=${(e: CustomEvent) => this.handleSessionSelect(e.detail.key)}
+            @session-select=${(e: CustomEvent) => {
+              this.handleSessionSelect(e.detail.key);
+              if (this.currentRoute !== 'chat') navigateTo('chat');
+            }}
             @delete-session=${(e: CustomEvent) => this.handleDeleteSession(e.detail.key)}
             @rename-session=${(e: CustomEvent) => this.handleRenameSession(e.detail.key, e.detail.label)}
+            @route-change=${(e: CustomEvent) => this.handleRouteChange(e)}
           ></jd-sidebar>
         </aside>
 
@@ -1113,8 +1365,12 @@ export class JdApp extends LitElement {
                 ${icons.menu}
               </button>
               <span class="jd-topbar__title">
-                ${this.appState.sessions.find(s => s.key === this.appState.sessionKey)?.displayName ||
-                'JDClaw 助手'}
+                ${this.currentRoute === 'chat'
+                  ? (this.appState.sessions.find(s => s.key === this.appState.sessionKey)?.displayName || 'JDClaw 助手')
+                  : this.currentRoute === 'sessions' ? '会话管理'
+                  : this.currentRoute === 'agents' ? '助手管理'
+                  : this.currentRoute === 'settings' ? '设置'
+                  : 'JDClaw'}
               </span>
             </div>
             <div class="jd-topbar__right">
@@ -1128,25 +1384,13 @@ export class JdApp extends LitElement {
             </div>
           </header>
 
-          <!-- Chat Area -->
-          <jd-chat-view
-            .messages=${this.appState.messages}
-            .streamingText=${this.appState.stream}
-            .sending=${this.appState.sending}
-            .attachments=${this.appState.chatAttachments}
-            .draft=${this.appState.chatMessage}
-            .focusMode=${this.focusMode}
-            @send=${(e: CustomEvent) => {
-              this.appState = { ...this.appState, chatMessage: e.detail };
-              this.handleSend();
-            }}
-            @abort=${() => this.handleAbort()}
-            @draft-change=${(e: CustomEvent) => this.handleInputChange(e.detail)}
-            @retry-message=${() => this.handleRetryMessage()}
-            @copy-success=${() => this.handleCopySuccess()}
-          ></jd-chat-view>
+          <!-- Routed Content -->
+          ${this.renderRouteContent()}
         </main>
       </div>
+
+      <!-- Exec Approval Queue -->
+      ${this.execApprovalQueue.length > 0 ? this.renderApprovalQueue() : nothing}
     `;
   }
 }

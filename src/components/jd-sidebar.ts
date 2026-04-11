@@ -1,6 +1,7 @@
-import { LitElement, html, css, nothing } from 'lit';
+import { LitElement, html, css, nothing, type TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { Agent, Model, SidebarSessionItem, ContextMenuItem } from '../types/index.js';
+import { ROUTES, type Route } from '../utils/router.js';
 import './jd-context-menu.js';
 
 @customElement('jd-sidebar')
@@ -182,6 +183,51 @@ export class JDSidebar extends LitElement {
       box-sizing: border-box;
     }
 
+    .nav-section {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 8px;
+      border-bottom: 1px solid var(--jd-border, #e5e7eb);
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--jd-text-secondary, #6b7280);
+      cursor: pointer;
+      font-size: 14px;
+      font-family: inherit;
+      transition: all 0.15s;
+      text-align: left;
+      width: 100%;
+    }
+
+    .nav-item:hover {
+      background: var(--jd-bg-tertiary, #f3f4f6);
+      color: var(--jd-text-primary, #111827);
+    }
+
+    .nav-item.active {
+      background: var(--jd-primary, #4f46e5);
+      color: white;
+    }
+
+    .nav-icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .nav-label {
+      font-weight: 500;
+    }
+
     .agent-selector {
       padding: 12px;
       border-top: 1px solid var(--jd-border, #e5e7eb);
@@ -223,6 +269,7 @@ export class JDSidebar extends LitElement {
   @property({ type: Object }) currentAgent: Agent | null = null;
   @property({ type: Array }) models: Model[] = [];
   @property({ type: String }) selectedModel = '';
+  @property({ type: String }) currentRoute: Route = 'chat';
 
   @state() private sessionsExpanded = true;
   @state() private editingSessionKey: string | null = null;
@@ -232,6 +279,29 @@ export class JDSidebar extends LitElement {
     { id: 'rename', label: '重命名' },
     { id: 'delete', label: '删除', danger: true },
   ];
+
+  private handleNavClick(route: Route) {
+    this.dispatchEvent(new CustomEvent('route-change', {
+      detail: route,
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  private navIconFor(icon: string): TemplateResult {
+    switch (icon) {
+      case 'chat':
+        return html`<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
+      case 'sessions':
+        return html`<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`;
+      case 'agents':
+        return html`<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+      case 'settings':
+        return html`<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
+      default:
+        return html`<svg class="nav-icon" viewBox="0 0 24 24"></svg>`;
+    }
+  }
 
   private handleNewChat() {
     this.dispatchEvent(new CustomEvent('new-session', { bubbles: true, composed: true }));
@@ -374,6 +444,19 @@ export class JDSidebar extends LitElement {
         </button>
       </div>
 
+      <div class="nav-section">
+        ${ROUTES.map(route => html`
+          <button
+            class="nav-item ${route.id === this.currentRoute ? 'active' : ''}"
+            @click=${() => this.handleNavClick(route.id)}
+          >
+            ${this.navIconFor(route.icon)}
+            <span class="nav-label">${route.label}</span>
+          </button>
+        `)}
+      </div>
+
+      ${this.currentRoute === 'chat' ? html`
       <div class="section">
         <div class="section-title" @click=${() => this.sessionsExpanded = !this.sessionsExpanded}>
           <span>会话</span>
@@ -391,6 +474,7 @@ export class JDSidebar extends LitElement {
           </div>
         ` : nothing}
       </div>
+      ` : nothing}
 
       <div class="agent-selector">
         <div class="agent-label">助手</div>

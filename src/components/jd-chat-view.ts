@@ -1,9 +1,19 @@
-import { LitElement, html, css } from 'lit';
+import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { marked } from 'marked';
-import type { Message, Attachment } from '../types/index.js';
+import DOMPurify from 'dompurify';
+import type { Message, Attachment, ToolStreamEntry, ChatStreamSegment } from '../types/index.js';
 import { copyToClipboard } from '../utils/index.js';
+import './jd-tool-card.js';
+import './jd-slash-menu.js';
+import type { JdSlashMenu } from './jd-slash-menu.js';
+
+interface MessageGroup {
+  role: string;
+  messages: Message[];
+  timestamp: number;
+}
 
 // Configure marked: GFM enabled, no raw HTML passthrough
 marked.use({
@@ -620,6 +630,120 @@ export class JDChatView extends LitElement {
       color: var(--jd-text-secondary, #6b7280);
       max-width: 400px;
     }
+
+    /* Message group styles */
+    .message-group {
+      display: flex;
+      gap: 12px;
+      animation: fadeIn 0.3s ease;
+      position: relative;
+    }
+
+    .message-group.user {
+      flex-direction: row-reverse;
+    }
+
+    .message-group .message-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .message-group.user .message-avatar {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: white;
+    }
+
+    .message-group.assistant .message-avatar {
+      background: var(--jd-bg-tertiary, #f3f4f6);
+      color: var(--jd-text-secondary, #6b7280);
+    }
+
+    .message-group-content {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .message-group .message-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .message-group.user .message-header {
+      flex-direction: row-reverse;
+    }
+
+    .grouped-message {
+      position: relative;
+    }
+
+    .grouped-message .message-action-bar {
+      position: absolute;
+      top: -4px;
+      right: 0;
+    }
+
+    /* Thinking block styles */
+    .thinking-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      margin-bottom: 8px;
+      border: 1px solid var(--jd-border, #e5e7eb);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--jd-text-muted, #9ca3af);
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+      transition: all 0.15s;
+      width: auto;
+    }
+
+    .thinking-toggle:hover {
+      background: var(--jd-bg-tertiary, #f3f4f6);
+      color: var(--jd-text-secondary, #6b7280);
+    }
+
+    .thinking-toggle svg {
+      transition: transform 0.2s;
+    }
+
+    .thinking-toggle.expanded svg {
+      transform: rotate(90deg);
+    }
+
+    .thinking-content {
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      border-left: 3px solid var(--jd-text-muted, #9ca3af);
+      background: rgba(0, 0, 0, 0.03);
+      border-radius: 0 8px 8px 0;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--jd-text-secondary, #6b7280);
+      white-space: pre-wrap;
+    }
+
+    /* Tool cards container */
+    .tool-cards-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 8px 0;
+    }
   `;
 
   @property({ type: Array }) messages: Message[] = [];
@@ -628,11 +752,16 @@ export class JDChatView extends LitElement {
   @property({ type: Array }) attachments: Attachment[] = [];
   @property({ type: String }) draft = '';
   @property({ type: Boolean }) focusMode = false;
+  @property({ type: Array }) toolStreamEntries: ToolStreamEntry[] = [];
+  @property({ type: Array }) chatStreamSegments: ChatStreamSegment[] = [];
 
   @query('.input-field') private inputField!: HTMLTextAreaElement;
 
   @state() private inputValue = '';
   @state() private copiedMessageId: string | null = null;
+  @state() private expandedThinking: Set<string> = new Set();
+  @state() private slashMenuOpen = false;
+  @state() private slashQuery = '';
 
   updated(changedProperties: Map<string, unknown>) {
     if (changedProperties.has('draft')) {
@@ -643,10 +772,18 @@ export class JDChatView extends LitElement {
   private handleInput(e: Event) {
     const textarea = e.target as HTMLTextAreaElement;
     this.inputValue = textarea.value;
-    
+
     textarea.style.height = 'auto';
     textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
-    
+
+    if (this.inputValue.startsWith('/')) {
+      this.slashMenuOpen = true;
+      this.slashQuery = this.inputValue.slice(1);
+    } else {
+      this.slashMenuOpen = false;
+      this.slashQuery = '';
+    }
+
     this.dispatchEvent(new CustomEvent('draft-change', {
       detail: this.inputValue,
       bubbles: true,
@@ -656,6 +793,10 @@ export class JDChatView extends LitElement {
 
   private handleKeyDown(e: KeyboardEvent) {
     console.log('[JDChatView] handleKeyDown:', e.key, 'shift:', e.shiftKey);
+    if (this.slashMenuOpen) {
+      const menu = this.shadowRoot?.querySelector('jd-slash-menu') as JdSlashMenu | null;
+      if (menu?.handleKeyDown(e)) return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       e.stopPropagation();
@@ -686,6 +827,17 @@ export class JDChatView extends LitElement {
 
   private handleAbort() {
     this.dispatchEvent(new CustomEvent('abort', { bubbles: true, composed: true }));
+  }
+
+  private handleSlashSelect(e: CustomEvent<{ key: string }>) {
+    this.slashMenuOpen = false;
+    this.slashQuery = '';
+    this.inputValue = '';
+    this.dispatchEvent(new CustomEvent('slash-command', {
+      detail: e.detail,
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   private handleAttachmentRemove(attachment: Attachment) {
@@ -729,8 +881,9 @@ export class JDChatView extends LitElement {
   }
 
   private renderMarkdownContent(content: string) {
-    const htmlStr = marked(content) as string;
-    return unsafeHTML(htmlStr);
+    const rawHtml = marked(content) as string;
+    const cleanHtml = DOMPurify.sanitize(rawHtml);
+    return unsafeHTML(cleanHtml);
   }
 
   private async handleCopyMessage(message: Message) {
@@ -812,55 +965,126 @@ export class JDChatView extends LitElement {
     `;
   }
 
-  private renderMessage(message: Message, isLastAssistant: boolean) {
-    const isCopied = this.copiedMessageId === message.id;
+  private groupMessages(messages: Message[]): MessageGroup[] {
+    const groups: MessageGroup[] = [];
+    for (const msg of messages) {
+      const last = groups[groups.length - 1];
+      if (last && last.role === msg.role) {
+        last.messages.push(msg);
+      } else {
+        groups.push({
+          role: msg.role,
+          messages: [msg],
+          timestamp: msg.timestamp,
+        });
+      }
+    }
+    return groups;
+  }
+
+  private toggleThinking(messageId: string) {
+    const next = new Set(this.expandedThinking);
+    if (next.has(messageId)) {
+      next.delete(messageId);
+    } else {
+      next.add(messageId);
+    }
+    this.expandedThinking = next;
+  }
+
+  private renderToolCards() {
+    if (this.toolStreamEntries.length === 0) return nothing;
     return html`
-      <div class="message ${message.role}">
-        <div class="message-avatar">
-          ${message.role === 'user' ? 'U' : 'A'}
+      <div class="tool-cards-container">
+        ${this.toolStreamEntries.map(entry => html`
+          <jd-tool-card
+            .name=${entry.name}
+            .args=${entry.args}
+            .output=${entry.output}
+            .status=${entry.status}
+            .startedAt=${entry.startedAt}
+            .completedAt=${entry.completedAt}
+          ></jd-tool-card>
+        `)}
+      </div>
+    `;
+  }
+
+  private renderMessage(message: Message, isLastAssistant: boolean, showHeader: boolean = true) {
+    const isCopied = this.copiedMessageId === message.id;
+    const isThinkingExpanded = this.expandedThinking.has(message.id);
+    return html`
+      <div class="grouped-message">
+        ${message.thinking ? html`
+          <button
+            class="thinking-toggle ${isThinkingExpanded ? 'expanded' : ''}"
+            @click=${() => this.toggleThinking(message.id)}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M9 6l6 6-6 6z"/>
+            </svg>
+            <span>思考过程</span>
+          </button>
+          ${isThinkingExpanded ? html`
+            <div class="thinking-content">${message.thinking}</div>
+          ` : nothing}
+        ` : nothing}
+        <div class="message-body" @click=${this.handleCodeBlockCopy}>
+          <div class="message-markdown">${this.renderMarkdownContent(message.content)}</div>
+          ${this.renderAttachments(message.attachments || [])}
         </div>
-        <div class="message-content">
-          <div class="message-header">
-            <span class="message-name">${message.role === 'user' ? '你' : '助手'}</span>
-            <span class="message-time">${this.formatTime(message.timestamp)}</span>
-          </div>
-          <div class="message-body" @click=${this.handleCodeBlockCopy}>
-            <div class="message-markdown">${this.renderMarkdownContent(message.content)}</div>
-            ${this.renderAttachments(message.attachments || [])}
-          </div>
-          <div class="message-action-bar">
+        <div class="message-action-bar">
+          <button
+            class="action-btn ${isCopied ? 'copied' : ''}"
+            @click=${() => this.handleCopyMessage(message)}
+            title="复制消息"
+          >
+            ${isCopied ? html`
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>已复制</span>
+            ` : html`
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+              </svg>
+              <span>复制</span>
+            `}
+          </button>
+          ${isLastAssistant && message.role === 'assistant' ? html`
             <button
-              class="action-btn ${isCopied ? 'copied' : ''}"
-              @click=${() => this.handleCopyMessage(message)}
-              title="复制消息"
+              class="action-btn"
+              @click=${() => this.handleRetryMessage(message)}
+              title="重新生成"
             >
-              ${isCopied ? html`
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-                <span>已复制</span>
-              ` : html`
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
-                </svg>
-                <span>复制</span>
-              `}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"></path>
+              </svg>
+              <span>重试</span>
             </button>
-            ${isLastAssistant && message.role === 'assistant' ? html`
-              <button
-                class="action-btn"
-                @click=${() => this.handleRetryMessage(message)}
-                title="重新生成"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="23 4 23 10 17 10"></polyline>
-                  <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"></path>
-                </svg>
-                <span>重试</span>
-              </button>
-            ` : null}
+          ` : nothing}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderMessageGroup(group: MessageGroup, lastAssistantId: string | null) {
+    return html`
+      <div class="message-group ${group.role}">
+        <div class="message-avatar">
+          ${group.role === 'user' ? 'U' : 'A'}
+        </div>
+        <div class="message-group-content">
+          <div class="message-header">
+            <span class="message-name">${group.role === 'user' ? '你' : '助手'}</span>
+            <span class="message-time">${this.formatTime(group.timestamp)}</span>
           </div>
+          ${group.messages.map(msg => {
+            const isLastAssistant = msg.id === lastAssistantId;
+            return this.renderMessage(msg, isLastAssistant, false);
+          })}
         </div>
       </div>
     `;
@@ -891,17 +1115,18 @@ export class JDChatView extends LitElement {
 
   render() {
     const hasMessages = this.messages.length > 0 || this.streamingText;
-    
+    const groups = this.groupMessages(this.messages);
+    // Find the last assistant message id for retry button
+    const lastAssistantMsg = [...this.messages].reverse().find(m => m.role === 'assistant');
+    const lastAssistantId = lastAssistantMsg ? lastAssistantMsg.id : null;
+
     return html`
       <div class="messages-container">
         <div class="messages-wrapper">
           ${hasMessages ? html`
-            ${this.messages.map((msg, idx) => {
-              const isLastAssistant = msg.role === 'assistant' &&
-                !this.messages.slice(idx + 1).some(m => m.role === 'assistant');
-              return this.renderMessage(msg, isLastAssistant);
-            })}
+            ${groups.map(group => this.renderMessageGroup(group, lastAssistantId))}
             ${this.renderStreamingMessage()}
+            ${this.renderToolCards()}
           ` : html`
             <div class="empty-state">
               <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -937,6 +1162,14 @@ export class JDChatView extends LitElement {
 
           <div class="input-row">
             <div class="input-wrapper">
+              ${this.slashMenuOpen ? html`
+                <jd-slash-menu
+                  .open=${true}
+                  .query=${this.slashQuery}
+                  @slash-select=${this.handleSlashSelect}
+                  @slash-close=${() => { this.slashMenuOpen = false; this.slashQuery = ''; }}
+                ></jd-slash-menu>
+              ` : nothing}
               <textarea 
                 class="input-field"
                 placeholder="输入消息... (Shift + Enter 换行)"

@@ -317,3 +317,41 @@ export interface SidebarSessionItem {
   status?: string;
   messageCount?: number;
 }
+
+// ============================================
+// Tool Stream Types
+// ============================================
+
+export interface ToolStreamEntry {
+  toolCallId: string;
+  runId: string;
+  sessionKey: string;
+  name: string;
+  args: Record<string, unknown> | null;
+  output: string;
+  startedAt: number;
+  completedAt: number | null;
+  status: 'running' | 'completed' | 'error';
+}
+
+export interface ChatStreamSegment {
+  type: 'text' | 'tool_call' | 'tool_result' | 'thinking';
+  id: string;
+  content: string;
+  toolCallId?: string;
+  toolName?: string;
+  toolArgs?: Record<string, unknown> | null;
+  timestamp: number;
+  status?: 'running' | 'completed' | 'error';
+}
+
+export interface ExecApprovalRequest {
+  id: string;
+  sessionKey: string;
+  runId: string;
+  toolName: string;
+  toolArgs: Record<string, unknown>;
+  command?: string;
+  expiresAt: number;
+  timestamp: number;
+}
