@@ -13,6 +13,7 @@ export interface Message {
   thinking?: string;
   usage?: TokenUsage;
   stopReason?: string;
+  optimistic?: boolean;
 }
 
 export interface Attachment {
