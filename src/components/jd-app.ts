@@ -322,8 +322,11 @@ export class JdApp extends LitElement {
     }
     this.applyTheme(settings.theme || 'dark');
 
-    this.connect();
-    this.startSessionPoll();
+    // Only auto-connect if we have a token; otherwise wait for user input
+    if (this.gatewayToken) {
+      this.connect();
+      this.startSessionPoll();
+    }
 
     // Initialize routing
     this.currentRoute = getCurrentRoute();
@@ -1445,6 +1448,7 @@ export class JdApp extends LitElement {
 
   private handleTokenSubmit() {
     const token = this.tokenInput.trim();
+    if (!token && !this.gatewayToken) return;
     if (token) {
       persistGatewayToken(token);
       this.gatewayToken = token;
@@ -1454,6 +1458,7 @@ export class JdApp extends LitElement {
     this.disconnect();
     this.reconnectAttempts = 0;
     this.connect();
+    this.startSessionPoll();
   }
 
   // ── Main Render ─────────────────────────────────────────────────────────────
