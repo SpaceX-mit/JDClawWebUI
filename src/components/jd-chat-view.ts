@@ -1,5 +1,5 @@
-import { LitElement, html, css, nothing } from 'lit';
-import { customElement, property, state, query } from 'lit/decorators.js';
+import { LitElement, html, nothing } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
@@ -7,7 +7,6 @@ import type { Message, Attachment, ToolStreamEntry, ChatStreamSegment } from '..
 import { copyToClipboard } from '../utils/index.js';
 import './jd-tool-card.js';
 import './jd-slash-menu.js';
-import type { JdSlashMenu } from './jd-slash-menu.js';
 
 interface MessageGroup {
   role: string;
@@ -49,702 +48,7 @@ marked.use({
 
 @customElement('jd-chat-view')
 export class JDChatView extends LitElement {
-  static styles = css`
-    :host {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      overflow: hidden;
-      background: var(--jd-bg-primary, #ffffff);
-      color: var(--jd-text-primary, #111827);
-    }
-
-    .messages-container {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px 24px;
-      scroll-behavior: smooth;
-    }
-
-    .messages-wrapper {
-      max-width: 800px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-    }
-
-    .message {
-      display: flex;
-      gap: 12px;
-      animation: fadeIn 0.3s ease;
-      position: relative;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .message.user {
-      flex-direction: row-reverse;
-    }
-
-    .message-avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 8px;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 600;
-      font-size: 14px;
-    }
-
-    .message.user .message-avatar {
-      background: linear-gradient(135deg, #4f46e5, #7c3aed);
-      color: white;
-    }
-
-    .message.assistant .message-avatar {
-      background: var(--jd-bg-tertiary, #f3f4f6);
-      color: var(--jd-text-secondary, #6b7280);
-    }
-
-    .message-content {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .message-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 4px;
-    }
-
-    .message.user .message-header {
-      flex-direction: row-reverse;
-    }
-
-    .message-name {
-      font-weight: 600;
-      font-size: 14px;
-      color: var(--jd-text-primary, #111827);
-    }
-
-    .message-time {
-      font-size: 12px;
-      color: var(--jd-text-muted, #9ca3af);
-    }
-
-    .message-body {
-      background: var(--jd-bg-secondary, #f9fafb);
-      border-radius: 12px;
-      padding: 12px 16px;
-      font-size: 15px;
-      line-height: 1.6;
-      color: var(--jd-text-primary, #111827);
-    }
-
-    .message.user .message-body {
-      background: var(--jd-primary, #4f46e5);
-      color: white;
-    }
-
-    .message-body p {
-      margin: 0 0 8px 0;
-    }
-
-    .message-body p:last-child {
-      margin-bottom: 0;
-    }
-
-    .message-body code {
-      background: rgba(0, 0, 0, 0.06);
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-family: 'Monaco', 'Menlo', monospace;
-      font-size: 0.9em;
-    }
-
-    .message.user .message-body code {
-      background: rgba(255, 255, 255, 0.2);
-    }
-
-    .message-body pre {
-      background: #1e1e1e;
-      color: #d4d4d4;
-      padding: 12px 16px;
-      border-radius: 8px;
-      overflow-x: auto;
-      margin: 8px 0;
-    }
-
-    .message-body pre code {
-      background: transparent;
-      padding: 0;
-      color: inherit;
-    }
-
-    /* Action bar */
-    .message-action-bar {
-      position: absolute;
-      top: -4px;
-      right: 48px;
-      display: flex;
-      gap: 4px;
-      padding: 4px;
-      background: var(--jd-bg-tertiary, #f3f4f6);
-      border: 1px solid var(--jd-border, #e5e7eb);
-      border-radius: 8px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.15s ease;
-      z-index: 10;
-    }
-
-    .message:hover .message-action-bar {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .action-btn {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 4px 8px;
-      border: none;
-      border-radius: 6px;
-      background: transparent;
-      color: var(--jd-text-secondary, #6b7280);
-      cursor: pointer;
-      font-size: 12px;
-      font-family: inherit;
-      white-space: nowrap;
-      transition: background 0.15s, color 0.15s;
-    }
-
-    .action-btn:hover {
-      background: var(--jd-border, #e5e7eb);
-      color: var(--jd-text-primary, #111827);
-    }
-
-    .action-btn.copied {
-      color: #22c55e;
-    }
-
-    /* Code block styles */
-    .code-block-wrapper {
-      margin: 12px 0;
-      border-radius: 8px;
-      overflow: hidden;
-      border: 1px solid #333;
-    }
-
-    .code-block-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 6px 12px;
-      background: #2d2d2d;
-      font-size: 12px;
-    }
-
-    .code-block-lang {
-      color: #999;
-      text-transform: lowercase;
-    }
-
-    .code-copy-btn {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      border: none;
-      border-radius: 4px;
-      background: transparent;
-      color: #999;
-      cursor: pointer;
-      font-size: 12px;
-      font-family: inherit;
-      transition: background 0.15s, color 0.15s;
-    }
-
-    .code-copy-btn:hover {
-      background: #444;
-      color: #ddd;
-    }
-
-    .code-copy-btn.copied {
-      color: #22c55e;
-    }
-
-    /* Markdown content styles */
-    .message-markdown {
-      line-height: 1.6;
-    }
-
-    .message-markdown p {
-      margin: 0 0 8px 0;
-    }
-
-    .message-markdown p:last-child {
-      margin-bottom: 0;
-    }
-
-    .message-markdown h1,
-    .message-markdown h2,
-    .message-markdown h3,
-    .message-markdown h4,
-    .message-markdown h5,
-    .message-markdown h6 {
-      margin: 16px 0 8px 0;
-      font-weight: 600;
-      line-height: 1.3;
-    }
-
-    .message-markdown h1 { font-size: 1.4em; }
-    .message-markdown h2 { font-size: 1.25em; }
-    .message-markdown h3 { font-size: 1.1em; }
-
-    .message-markdown ul,
-    .message-markdown ol {
-      margin: 8px 0;
-      padding-left: 24px;
-    }
-
-    .message-markdown li {
-      margin: 4px 0;
-    }
-
-    .message-markdown blockquote {
-      margin: 8px 0;
-      padding: 4px 12px;
-      border-left: 3px solid var(--jd-primary, #4f46e5);
-      color: var(--jd-text-secondary, #6b7280);
-    }
-
-    .message-markdown table {
-      border-collapse: collapse;
-      margin: 8px 0;
-      width: 100%;
-      font-size: 14px;
-    }
-
-    .message-markdown th,
-    .message-markdown td {
-      border: 1px solid var(--jd-border, #e5e7eb);
-      padding: 6px 12px;
-      text-align: left;
-    }
-
-    .message-markdown th {
-      background: var(--jd-bg-tertiary, #f3f4f6);
-      font-weight: 600;
-    }
-
-    .message-markdown a {
-      color: var(--jd-primary, #4f46e5);
-      text-decoration: none;
-    }
-
-    .message-markdown a:hover {
-      text-decoration: underline;
-    }
-
-    .message-markdown hr {
-      border: none;
-      border-top: 1px solid var(--jd-border, #e5e7eb);
-      margin: 12px 0;
-    }
-
-    .message-markdown img {
-      max-width: 100%;
-      border-radius: 8px;
-    }
-
-    .message-markdown pre {
-      background: #1e1e1e;
-      color: #d4d4d4;
-      padding: 12px 16px;
-      border-radius: 0 0 8px 8px;
-      overflow-x: auto;
-      margin: 0;
-    }
-
-    .message-markdown pre code {
-      background: transparent;
-      padding: 0;
-      color: inherit;
-      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    .message-markdown code {
-      background: rgba(0, 0, 0, 0.06);
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
-      font-size: 0.9em;
-    }
-
-    .message.user .message-markdown code {
-      background: rgba(255, 255, 255, 0.2);
-    }
-
-    /* Syntax highlighting (dark theme tokens) */
-    .message-markdown pre .keyword { color: #569cd6; }
-    .message-markdown pre .string { color: #ce9178; }
-    .message-markdown pre .comment { color: #6a9955; }
-    .message-markdown pre .number { color: #b5cea8; }
-    .message-markdown pre .function { color: #dcdcaa; }
-    .message-markdown pre .operator { color: #d4d4d4; }
-
-    /* Attachment styles */
-    .message-attachments {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 8px;
-    }
-
-    .attachment-image {
-      max-width: 300px;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: opacity 0.15s;
-    }
-
-    .attachment-image:hover {
-      opacity: 0.9;
-    }
-
-    .attachment-file-card {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      background: var(--jd-bg-tertiary, #f3f4f6);
-      border: 1px solid var(--jd-border, #e5e7eb);
-      border-radius: 8px;
-      font-size: 13px;
-      color: var(--jd-text-secondary, #6b7280);
-    }
-
-    .attachment-file-card svg {
-      flex-shrink: 0;
-    }
-
-    .attachment-file-name {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      max-width: 200px;
-    }
-
-    .streaming-indicator {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      margin-left: 8px;
-    }
-
-    .streaming-dot {
-      width: 6px;
-      height: 6px;
-      background: var(--jd-primary, #4f46e5);
-      border-radius: 50%;
-      animation: pulse 1s ease-in-out infinite;
-    }
-
-    .streaming-dot:nth-child(2) { animation-delay: 0.2s; }
-    .streaming-dot:nth-child(3) { animation-delay: 0.4s; }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 0.3; transform: scale(0.8); }
-      50% { opacity: 1; transform: scale(1); }
-    }
-
-    .input-area {
-      padding: 16px 24px 24px;
-      border-top: 1px solid var(--jd-border, #e5e7eb);
-      background: var(--jd-bg-primary, #ffffff);
-    }
-
-    .input-container {
-      max-width: 800px;
-      margin: 0 auto;
-    }
-
-    .attachments-preview {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-
-    .attachment-chip {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 10px;
-      background: var(--jd-bg-tertiary, #f3f4f6);
-      border-radius: 6px;
-      font-size: 13px;
-      color: var(--jd-text-secondary, #6b7280);
-    }
-
-    .attachment-chip img {
-      width: 24px;
-      height: 24px;
-      object-fit: cover;
-      border-radius: 4px;
-    }
-
-    .attachment-chip button {
-      background: none;
-      border: none;
-      padding: 0;
-      cursor: pointer;
-      color: var(--jd-text-muted, #9ca3af);
-      display: flex;
-      align-items: center;
-    }
-
-    .attachment-chip button:hover {
-      color: var(--jd-danger, #ef4444);
-    }
-
-    .input-row {
-      display: flex;
-      gap: 12px;
-      align-items: flex-end;
-    }
-
-    .input-wrapper {
-      flex: 1;
-      position: relative;
-    }
-
-    .input-field {
-      width: 100%;
-      min-height: 44px;
-      max-height: 200px;
-      padding: 10px 16px;
-      border: 1px solid var(--jd-border, #e5e7eb);
-      border-radius: 12px;
-      font-family: inherit;
-      font-size: 15px;
-      line-height: 1.5;
-      resize: none;
-      outline: none;
-      transition: border-color 0.2s;
-      background: var(--jd-bg-secondary, #f9fafb);
-      color: var(--jd-text-primary, #111827);
-    }
-
-    .input-field:focus {
-      border-color: var(--jd-primary, #4f46e5);
-      background: var(--jd-bg-primary, #ffffff);
-    }
-
-    .input-field::placeholder {
-      color: var(--jd-text-muted, #9ca3af);
-    }
-
-    .input-actions {
-      display: flex;
-      gap: 8px;
-    }
-
-    .input-btn {
-      width: 44px;
-      height: 44px;
-      border: none;
-      border-radius: 10px;
-      background: var(--jd-bg-tertiary, #f3f4f6);
-      color: var(--jd-text-secondary, #6b7280);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s;
-    }
-
-    .input-btn:hover {
-      background: var(--jd-border, #e5e7eb);
-    }
-
-    .input-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .send-btn {
-      background: var(--jd-primary, #4f46e5);
-      color: white;
-    }
-
-    .send-btn:hover:not(:disabled) {
-      background: var(--jd-primary-hover, #4338ca);
-    }
-
-    .abort-btn {
-      background: var(--jd-danger, #ef4444);
-      color: white;
-    }
-
-    .abort-btn:hover {
-      background: #dc2626;
-    }
-
-    .empty-state {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 48px;
-      text-align: center;
-    }
-
-    .empty-icon {
-      width: 64px;
-      height: 64px;
-      margin-bottom: 16px;
-      color: var(--jd-text-muted, #9ca3af);
-    }
-
-    .empty-title {
-      font-size: 20px;
-      font-weight: 600;
-      color: var(--jd-text-primary, #111827);
-      margin-bottom: 8px;
-    }
-
-    .empty-description {
-      font-size: 14px;
-      color: var(--jd-text-secondary, #6b7280);
-      max-width: 400px;
-    }
-
-    /* Message group styles */
-    .message-group {
-      display: flex;
-      gap: 12px;
-      animation: fadeIn 0.3s ease;
-      position: relative;
-    }
-
-    .message-group.user {
-      flex-direction: row-reverse;
-    }
-
-    .message-group .message-avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 8px;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 600;
-      font-size: 14px;
-    }
-
-    .message-group.user .message-avatar {
-      background: linear-gradient(135deg, #4f46e5, #7c3aed);
-      color: white;
-    }
-
-    .message-group.assistant .message-avatar {
-      background: var(--jd-bg-tertiary, #f3f4f6);
-      color: var(--jd-text-secondary, #6b7280);
-    }
-
-    .message-group-content {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .message-group .message-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 4px;
-    }
-
-    .message-group.user .message-header {
-      flex-direction: row-reverse;
-    }
-
-    .grouped-message {
-      position: relative;
-    }
-
-    .grouped-message .message-action-bar {
-      position: absolute;
-      top: -4px;
-      right: 0;
-    }
-
-    /* Thinking block styles */
-    .thinking-toggle {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 10px;
-      margin-bottom: 8px;
-      border: 1px solid var(--jd-border, #e5e7eb);
-      border-radius: 8px;
-      background: transparent;
-      color: var(--jd-text-muted, #9ca3af);
-      cursor: pointer;
-      font-size: 12px;
-      font-family: inherit;
-      transition: all 0.15s;
-      width: auto;
-    }
-
-    .thinking-toggle:hover {
-      background: var(--jd-bg-tertiary, #f3f4f6);
-      color: var(--jd-text-secondary, #6b7280);
-    }
-
-    .thinking-toggle svg {
-      transition: transform 0.2s;
-    }
-
-    .thinking-toggle.expanded svg {
-      transform: rotate(90deg);
-    }
-
-    .thinking-content {
-      padding: 10px 14px;
-      margin-bottom: 8px;
-      border-left: 3px solid var(--jd-text-muted, #9ca3af);
-      background: rgba(0, 0, 0, 0.03);
-      border-radius: 0 8px 8px 0;
-      font-size: 13px;
-      line-height: 1.5;
-      color: var(--jd-text-secondary, #6b7280);
-      white-space: pre-wrap;
-    }
-
-    /* Tool cards container */
-    .tool-cards-container {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin: 8px 0;
-    }
-  `;
+  createRenderRoot() { return this; }
 
   @property({ type: Array }) messages: Message[] = [];
   @property({ type: String }) streamingText: string | null = null;
@@ -754,8 +58,6 @@ export class JDChatView extends LitElement {
   @property({ type: Boolean }) focusMode = false;
   @property({ type: Array }) toolStreamEntries: ToolStreamEntry[] = [];
   @property({ type: Array }) chatStreamSegments: ChatStreamSegment[] = [];
-
-  @query('.input-field') private inputField!: HTMLTextAreaElement;
 
   @state() private inputValue = '';
   @state() private copiedMessageId: string | null = null;
@@ -767,6 +69,41 @@ export class JDChatView extends LitElement {
     if (changedProperties.has('draft')) {
       this.inputValue = this.draft;
     }
+  }
+
+  private groupMessages(messages: Message[]): MessageGroup[] {
+    const groups: MessageGroup[] = [];
+    for (const msg of messages) {
+      const last = groups[groups.length - 1];
+      if (last && last.role === msg.role) {
+        last.messages.push(msg);
+      } else {
+        groups.push({ role: msg.role, messages: [msg], timestamp: msg.timestamp });
+      }
+    }
+    return groups;
+  }
+
+  private formatTime(timestamp: number): string {
+    return new Date(timestamp).toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  private toggleThinking(messageId: string) {
+    const next = new Set(this.expandedThinking);
+    if (next.has(messageId)) {
+      next.delete(messageId);
+    } else {
+      next.add(messageId);
+    }
+    this.expandedThinking = next;
+  }
+
+  private quickSend(text: string) {
+    this.inputValue = text;
+    this.handleSend();
   }
 
   private handleInput(e: Event) {
@@ -792,9 +129,8 @@ export class JDChatView extends LitElement {
   }
 
   private handleKeyDown(e: KeyboardEvent) {
-    console.log('[JDChatView] handleKeyDown:', e.key, 'shift:', e.shiftKey);
     if (this.slashMenuOpen) {
-      const menu = this.shadowRoot?.querySelector('jd-slash-menu') as JdSlashMenu | null;
+      const menu = this.querySelector('jd-slash-menu') as any;
       if (menu?.handleKeyDown(e)) return;
     }
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -805,23 +141,19 @@ export class JDChatView extends LitElement {
   }
 
   private handleSend() {
-    console.log('[JDChatView] handleSend called, inputValue:', JSON.stringify(this.inputValue));
     if ((!this.inputValue || !this.inputValue.trim()) && this.attachments.length === 0) {
-      console.log('[JDChatView] Empty input, not sending');
       return;
     }
-    
     const message = this.inputValue;
-    console.log('[JDChatView] Dispatching send event with:', message);
     this.dispatchEvent(new CustomEvent('send', {
       detail: message,
       bubbles: true,
       composed: true
     }));
-    
     this.inputValue = '';
-    if (this.inputField) {
-      this.inputField.style.height = 'auto';
+    const textarea = this.querySelector('textarea');
+    if (textarea) {
+      textarea.style.height = 'auto';
     }
   }
 
@@ -873,23 +205,10 @@ export class JDChatView extends LitElement {
     input.click();
   }
 
-  private formatTime(timestamp: number): string {
-    return new Date(timestamp).toLocaleTimeString('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  }
-
-  private renderMarkdownContent(content: string) {
-    const rawHtml = marked(content) as string;
-    const cleanHtml = DOMPurify.sanitize(rawHtml);
-    return unsafeHTML(cleanHtml);
-  }
-
-  private async handleCopyMessage(message: Message) {
-    const success = await copyToClipboard(message.content);
+  private async handleCopyMessage(msg: Message) {
+    const success = await copyToClipboard(msg.content);
     if (success) {
-      this.copiedMessageId = message.id;
+      this.copiedMessageId = msg.id;
       this.dispatchEvent(new CustomEvent('copy-success', {
         bubbles: true,
         composed: true
@@ -900,9 +219,9 @@ export class JDChatView extends LitElement {
     }
   }
 
-  private handleRetryMessage(message: Message) {
+  private handleRetryMessage(msg: Message) {
     this.dispatchEvent(new CustomEvent('retry-message', {
-      detail: { messageId: message.id },
+      detail: { messageId: msg.id },
       bubbles: true,
       composed: true
     }));
@@ -935,20 +254,16 @@ export class JDChatView extends LitElement {
     }));
   }
 
-  private renderAttachments(attachments: Attachment[]) {
-    if (!attachments || attachments.length === 0) return null;
+  private renderMessageAttachments(attachments: Attachment[]) {
+    if (!attachments || attachments.length === 0) return nothing;
     return html`
       <div class="message-attachments">
         ${attachments.map(att => {
           if (att.type === 'image') {
             const src = att.url || att.data || '';
             return html`
-              <img
-                class="attachment-image"
-                src=${src}
-                alt=${att.name}
-                @click=${() => this.handleImageClick(src)}
-              >
+              <img class="attachment-image" src=${src} alt=${att.name}
+                @click=${() => this.handleImageClick(src)}>
             `;
           }
           return html`
@@ -965,148 +280,56 @@ export class JDChatView extends LitElement {
     `;
   }
 
-  private groupMessages(messages: Message[]): MessageGroup[] {
-    const groups: MessageGroup[] = [];
-    for (const msg of messages) {
-      const last = groups[groups.length - 1];
-      if (last && last.role === msg.role) {
-        last.messages.push(msg);
-      } else {
-        groups.push({
-          role: msg.role,
-          messages: [msg],
-          timestamp: msg.timestamp,
-        });
-      }
-    }
-    return groups;
-  }
-
-  private toggleThinking(messageId: string) {
-    const next = new Set(this.expandedThinking);
-    if (next.has(messageId)) {
-      next.delete(messageId);
-    } else {
-      next.add(messageId);
-    }
-    this.expandedThinking = next;
-  }
-
-  private renderToolCards() {
-    if (this.toolStreamEntries.length === 0) return nothing;
+  private renderThinking(msg: Message) {
+    const isExpanded = this.expandedThinking.has(msg.id);
     return html`
-      <div class="tool-cards-container">
-        ${this.toolStreamEntries.map(entry => html`
-          <jd-tool-card
-            .name=${entry.name}
-            .args=${entry.args}
-            .output=${entry.output}
-            .status=${entry.status}
-            .startedAt=${entry.startedAt}
-            .completedAt=${entry.completedAt}
-          ></jd-tool-card>
-        `)}
-      </div>
+      <button class="thinking-toggle ${isExpanded ? 'expanded' : ''}"
+        @click=${() => this.toggleThinking(msg.id)}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M9 6l6 6-6 6z"/>
+        </svg>
+        <span>思考过程</span>
+      </button>
+      ${isExpanded ? html`<div class="thinking-content">${msg.thinking}</div>` : nothing}
     `;
   }
 
-  private renderMessage(message: Message, isLastAssistant: boolean, showHeader: boolean = true) {
-    const isCopied = this.copiedMessageId === message.id;
-    const isThinkingExpanded = this.expandedThinking.has(message.id);
+  private renderBubble(msg: Message, isLastAssistant: boolean) {
     return html`
-      <div class="grouped-message">
-        ${message.thinking ? html`
-          <button
-            class="thinking-toggle ${isThinkingExpanded ? 'expanded' : ''}"
-            @click=${() => this.toggleThinking(message.id)}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M9 6l6 6-6 6z"/>
+      <div class="chat-bubble" @click=${this.handleCodeBlockCopy}>
+        <div class="chat-bubble-actions">
+          <button @click=${(e: Event) => { e.stopPropagation(); this.handleCopyMessage(msg); }}
+                  ?data-copied=${this.copiedMessageId === msg.id} title="复制">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
             </svg>
-            <span>思考过程</span>
           </button>
-          ${isThinkingExpanded ? html`
-            <div class="thinking-content">${message.thinking}</div>
-          ` : nothing}
-        ` : nothing}
-        <div class="message-body" @click=${this.handleCodeBlockCopy}>
-          <div class="message-markdown">${this.renderMarkdownContent(message.content)}</div>
-          ${this.renderAttachments(message.attachments || [])}
         </div>
-        <div class="message-action-bar">
-          <button
-            class="action-btn ${isCopied ? 'copied' : ''}"
-            @click=${() => this.handleCopyMessage(message)}
-            title="复制消息"
-          >
-            ${isCopied ? html`
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-              <span>已复制</span>
-            ` : html`
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
-              </svg>
-              <span>复制</span>
-            `}
-          </button>
-          ${isLastAssistant && message.role === 'assistant' ? html`
-            <button
-              class="action-btn"
-              @click=${() => this.handleRetryMessage(message)}
-              title="重新生成"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="23 4 23 10 17 10"></polyline>
-                <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"></path>
-              </svg>
-              <span>重试</span>
-            </button>
-          ` : nothing}
-        </div>
+        ${msg.thinking ? this.renderThinking(msg) : nothing}
+        ${unsafeHTML(DOMPurify.sanitize(marked(msg.content) as string))}
+        ${msg.attachments?.length ? this.renderMessageAttachments(msg.attachments) : nothing}
       </div>
     `;
   }
 
-  private renderMessageGroup(group: MessageGroup, lastAssistantId: string | null) {
+  private renderGroup(group: MessageGroup, isLastAssistantGroup: boolean, isLastAssistantInAll: boolean) {
     return html`
-      <div class="message-group ${group.role}">
-        <div class="message-avatar">
-          ${group.role === 'user' ? 'U' : 'A'}
-        </div>
-        <div class="message-group-content">
-          <div class="message-header">
-            <span class="message-name">${group.role === 'user' ? '你' : '助手'}</span>
-            <span class="message-time">${this.formatTime(group.timestamp)}</span>
-          </div>
-          ${group.messages.map(msg => {
-            const isLastAssistant = msg.id === lastAssistantId;
-            return this.renderMessage(msg, isLastAssistant, false);
-          })}
-        </div>
-      </div>
-    `;
-  }
-
-  private renderStreamingMessage() {
-    if (!this.streamingText) return null;
-    
-    return html`
-      <div class="message assistant">
-        <div class="message-avatar">A</div>
-        <div class="message-content">
-          <div class="message-header">
-            <span class="message-name">助手</span>
-            <div class="streaming-indicator">
-              <div class="streaming-dot"></div>
-              <div class="streaming-dot"></div>
-              <div class="streaming-dot"></div>
-            </div>
-          </div>
-          <div class="message-body">
-            <div class="message-markdown">${this.renderMarkdownContent(this.streamingText)}</div>
+      <div class="chat-group ${group.role}">
+        <div class="chat-avatar ${group.role}">${group.role === 'user' ? 'U' : 'A'}</div>
+        <div class="chat-group-messages">
+          ${group.messages.map((msg, i) => this.renderBubble(msg, isLastAssistantInAll && i === group.messages.length - 1))}
+          <div class="chat-group-footer">
+            <span class="chat-sender-name">${group.role === 'user' ? '你' : '助手'}</span>
+            <span class="chat-group-timestamp">${this.formatTime(group.timestamp)}</span>
+            ${isLastAssistantGroup ? html`
+              <button @click=${() => this.handleRetryMessage(group.messages[group.messages.length - 1])} title="重试">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"></path>
+                </svg>
+              </button>
+            ` : nothing}
           </div>
         </div>
       </div>
@@ -1116,96 +339,121 @@ export class JDChatView extends LitElement {
   render() {
     const hasMessages = this.messages.length > 0 || this.streamingText;
     const groups = this.groupMessages(this.messages);
-    // Find the last assistant message id for retry button
-    const lastAssistantMsg = [...this.messages].reverse().find(m => m.role === 'assistant');
-    const lastAssistantId = lastAssistantMsg ? lastAssistantMsg.id : null;
+    const lastAssistantGroupIdx = groups.map(g => g.role).lastIndexOf('assistant');
 
     return html`
-      <div class="messages-container">
-        <div class="messages-wrapper">
-          ${hasMessages ? html`
-            ${groups.map(group => this.renderMessageGroup(group, lastAssistantId))}
-            ${this.renderStreamingMessage()}
-            ${this.renderToolCards()}
-          ` : html`
-            <div class="empty-state">
-              <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-              </svg>
-              <div class="empty-title">开始新对话</div>
-              <div class="empty-description">
-                输入消息与 JDClaw 助手开始对话，支持文本、图片、文件上传
-              </div>
-            </div>
-          `}
-        </div>
-      </div>
-
-      <div class="input-area">
-        <div class="input-container">
-          ${this.attachments.length > 0 ? html`
-            <div class="attachments-preview">
-              ${this.attachments.map(att => html`
-                <div class="attachment-chip">
-                  ${att.type === 'image' ? html`<img src=${att.url || ''} alt=${att.name}>` : null}
-                  <span>${att.name}</span>
-                  <button @click=${() => this.handleAttachmentRemove(att)}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                  </button>
-                </div>
-              `)}
-            </div>
-          ` : null}
-
-          <div class="input-row">
-            <div class="input-wrapper">
-              ${this.slashMenuOpen ? html`
-                <jd-slash-menu
-                  .open=${true}
-                  .query=${this.slashQuery}
-                  @slash-select=${this.handleSlashSelect}
-                  @slash-close=${() => { this.slashMenuOpen = false; this.slashQuery = ''; }}
-                ></jd-slash-menu>
-              ` : nothing}
-              <textarea 
-                class="input-field"
-                placeholder="输入消息... (Shift + Enter 换行)"
-                .value=${this.inputValue}
-                @input=${this.handleInput}
-                @keydown=${this.handleKeyDown}
-                ?disabled=${this.sending && !this.streamingText}
-              ></textarea>
-            </div>
-            
-            <div class="input-actions">
-              <button class="input-btn" @click=${this.handleFileSelect} title="添加附件">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path>
-                </svg>
-              </button>
-
-              ${this.sending && this.streamingText ? html`
-                <button class="input-btn abort-btn" @click=${this.handleAbort} title="停止生成">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <rect x="6" y="6" width="12" height="12" rx="2"></rect>
-                  </svg>
-                </button>
+      <div class="chat">
+        <div class="chat-split-container">
+          <div class="chat-main">
+            <div class="chat-thread">
+              ${hasMessages ? html`
+                ${groups.map((group, idx) => {
+                  const isLastAssistantGroup = idx === lastAssistantGroupIdx;
+                  return this.renderGroup(group, isLastAssistantGroup, isLastAssistantGroup);
+                })}
+                ${this.streamingText ? html`
+                  <div class="chat-group assistant">
+                    <div class="chat-avatar assistant">A</div>
+                    <div class="chat-group-messages">
+                      <div class="chat-bubble streaming">
+                        ${unsafeHTML(DOMPurify.sanitize(marked(this.streamingText!) as string))}
+                      </div>
+                    </div>
+                  </div>
+                ` : nothing}
+                ${this.toolStreamEntries.length > 0 ? html`
+                  <div class="chat-group assistant">
+                    <div class="chat-avatar assistant" style="font-size:16px">🔧</div>
+                    <div class="chat-group-messages">
+                      ${this.toolStreamEntries.map(entry => html`
+                        <jd-tool-card .name=${entry.name} .args=${entry.args} .output=${entry.output}
+                          .status=${entry.status} .startedAt=${entry.startedAt} .completedAt=${entry.completedAt}>
+                        </jd-tool-card>
+                      `)}
+                    </div>
+                  </div>
+                ` : nothing}
+                ${this.sending && !this.streamingText && this.toolStreamEntries.length === 0 ? html`
+                  <div class="chat-group assistant">
+                    <div class="chat-avatar assistant">A</div>
+                    <div class="chat-group-messages">
+                      <div class="chat-reading-indicator">
+                        <div class="chat-reading-indicator__dots">
+                          <span></span><span></span><span></span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ` : nothing}
               ` : html`
-                <button 
-                  class="input-btn send-btn" 
-                  @click=${this.handleSend}
-                  ?disabled=${!this.inputValue.trim() && this.attachments.length === 0}
-                  title="发送"
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="22" y1="2" x2="11" y2="13"></line>
-                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                  </svg>
-                </button>
+                <div class="agent-chat-welcome">
+                  <div class="agent-chat-welcome__glow"></div>
+                  <div class="agent-chat-welcome__avatar"><img src="/logo.svg" alt="JDClaw" /></div>
+                  <h2>JDClaw 助手</h2>
+                  <p class="agent-chat-welcome__hint">在下方输入消息开始对话 · <kbd>/</kbd> 查看命令</p>
+                  <div class="agent-chat-welcome__suggestions">
+                    <button class="agent-chat-welcome__suggestion" @click=${() => this.quickSend('你好，请介绍一下自己')}>你好，请介绍一下自己</button>
+                    <button class="agent-chat-welcome__suggestion" @click=${() => this.quickSend('帮我写一段代码')}>帮我写一段代码</button>
+                  </div>
+                </div>
               `}
+            </div>
+            <div class="chat-compose">
+              ${this.slashMenuOpen ? html`
+                <jd-slash-menu .open=${true} .query=${this.slashQuery}
+                  @slash-select=${this.handleSlashSelect}
+                  @slash-close=${() => { this.slashMenuOpen = false; this.slashQuery = ''; }}>
+                </jd-slash-menu>
+              ` : nothing}
+              <div class="agent-chat__input">
+                ${this.attachments.length > 0 ? html`
+                  <div class="chat-attachments-preview">
+                    ${this.attachments.map(att => att.type === 'image' ? html`
+                      <div class="chat-attachment-thumb">
+                        <img src=${att.url || ''} alt=${att.name}>
+                        <button class="chat-attachment-thumb__remove" @click=${() => this.handleAttachmentRemove(att)}>×</button>
+                      </div>
+                    ` : html`
+                      <div class="chat-attachment-file">
+                        <span>${att.name}</span>
+                        <button @click=${() => this.handleAttachmentRemove(att)}>×</button>
+                      </div>
+                    `)}
+                  </div>
+                ` : nothing}
+                <textarea
+                  placeholder="输入消息... (Enter 发送, Shift+Enter 换行)"
+                  .value=${this.inputValue}
+                  @input=${this.handleInput}
+                  @keydown=${this.handleKeyDown}
+                  ?disabled=${this.sending && !this.streamingText}
+                  rows="1"
+                ></textarea>
+                <div class="agent-chat__toolbar">
+                  <div class="agent-chat__toolbar-left">
+                    <button class="agent-chat__input-btn" @click=${this.handleFileSelect} title="附件">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path>
+                      </svg>
+                    </button>
+                  </div>
+                  <div class="agent-chat__toolbar-right">
+                    ${this.sending && this.streamingText ? html`
+                      <button class="agent-chat__input-btn stop" @click=${this.handleAbort} title="停止">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
+                      </button>
+                    ` : html`
+                      <button class="agent-chat__input-btn send" @click=${this.handleSend}
+                        ?disabled=${!this.inputValue.trim() && this.attachments.length === 0} title="发送">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <line x1="22" y1="2" x2="11" y2="13"></line>
+                          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                      </button>
+                    `}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
