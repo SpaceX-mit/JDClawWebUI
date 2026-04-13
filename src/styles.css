@@ -816,6 +816,49 @@ jd-chat-view {
   max-width: 400px;
 }
 
+/* ── Token Form ──────────────────────────────────────────────────────────── */
+
+.token-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.token-input {
+  flex: 1;
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: var(--mono);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.token-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.token-input::placeholder {
+  color: var(--text-muted);
+  font-family: var(--font-body);
+}
+
+.token-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--mono);
+}
+
+.loading-icon {
+  margin-bottom: 12px;
+}
+
 /* ── Utility ──────────────────────────────────────────────────────────────── */
 
 .spin {

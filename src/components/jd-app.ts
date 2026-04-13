@@ -1382,13 +1382,35 @@ export class JdApp extends LitElement {
     this.appState = { ...this.appState, chatMessage: value };
   }
 
+  @state() private tokenInput = '';
+
   // ── Render Helpers ──────────────────────────────────────────────────────────
 
   private renderLoading() {
+    const hasToken = !!this.gatewayToken;
     return html`
       <div class="loading-screen">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">正在连接 Gateway...</div>
+        ${hasToken ? html`
+          <div class="loading-spinner"></div>
+          <div class="loading-text">正在连接 Gateway...</div>
+        ` : html`
+          <div class="loading-icon">
+            <img src="/logo.svg" alt="JDClaw" style="width:48px;height:60px;" />
+          </div>
+          <div class="loading-text" style="font-size:18px;font-weight:600;margin-bottom:4px;">JDClaw WebUI</div>
+          <div class="loading-text">请输入 Gateway Token 以连接</div>
+          <div class="token-form">
+            <input
+              type="text"
+              class="token-input"
+              placeholder="输入 Gateway Token"
+              .value=${this.tokenInput}
+              @input=${(e: Event) => this.tokenInput = (e.target as HTMLInputElement).value}
+              @keydown=${(e: KeyboardEvent) => { if (e.key === 'Enter') this.handleTokenSubmit(); }}
+            />
+            <button class="btn btn--primary" @click=${() => this.handleTokenSubmit()} ?disabled=${!this.tokenInput.trim()}>连接</button>
+          </div>
+        `}
       </div>
     `;
   }
@@ -1399,9 +1421,39 @@ export class JdApp extends LitElement {
         <div class="error-icon">⚠️</div>
         <div class="error-title">无法连接到 Gateway</div>
         <div class="error-message">${this.appState.error || '请确保 OpenClaw Gateway 正在运行'}</div>
-        <button class="btn btn--primary" @click=${() => this.connect()}>重试</button>
+        <div class="token-form">
+          <input
+            type="text"
+            class="token-input"
+            placeholder="输入或更新 Gateway Token"
+            .value=${this.tokenInput}
+            @input=${(e: Event) => this.tokenInput = (e.target as HTMLInputElement).value}
+            @keydown=${(e: KeyboardEvent) => { if (e.key === 'Enter') this.handleTokenSubmit(); }}
+          />
+          <button class="btn btn--primary" @click=${() => this.handleTokenSubmit()}>
+            ${this.tokenInput.trim() ? '保存并重连' : '重试'}
+          </button>
+        </div>
+        ${this.gatewayToken ? html`
+          <div class="token-hint">当前 Token: ${this.gatewayToken.slice(0, 8)}...${this.gatewayToken.slice(-4)}</div>
+        ` : html`
+          <div class="token-hint">未设置 Token</div>
+        `}
       </div>
     `;
+  }
+
+  private handleTokenSubmit() {
+    const token = this.tokenInput.trim();
+    if (token) {
+      persistGatewayToken(token);
+      this.gatewayToken = token;
+      this.tokenInput = '';
+    }
+    this.appState = { ...this.appState, error: null, connecting: false };
+    this.disconnect();
+    this.reconnectAttempts = 0;
+    this.connect();
   }
 
   // ── Main Render ─────────────────────────────────────────────────────────────
