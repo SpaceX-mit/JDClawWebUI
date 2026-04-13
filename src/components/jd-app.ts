@@ -1529,6 +1529,8 @@ export class JdApp extends LitElement {
             .selectedAgentId=${this.selectedAgentId}
             .models=${this.models}
             .selectedModel=${this.selectedModel}
+            .sessions=${this.appState.sessions}
+            .currentSessionKey=${this.appState.sessionKey}
             @send=${(e: CustomEvent) => {
               this.appState = { ...this.appState, chatMessage: e.detail };
               this.handleSend();
@@ -1540,6 +1542,7 @@ export class JdApp extends LitElement {
             @slash-command=${(e: CustomEvent) => this.handleSlashCommand(e)}
             @agent-change=${(e: CustomEvent) => this.handleAgentChange(e.detail)}
             @model-change=${(e: CustomEvent) => this.handleModelChange(e.detail)}
+            @session-select=${(e: CustomEvent) => this.handleSessionSelect(e.detail.key)}
           ></jd-chat-view>
         `;
     }

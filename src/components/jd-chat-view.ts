@@ -3,7 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import type { Message, Attachment, ToolStreamEntry, ChatStreamSegment, Agent, Model } from '../types/index.js';
+import type { Message, Attachment, ToolStreamEntry, ChatStreamSegment, Agent, Model, SidebarSessionItem } from '../types/index.js';
 import { copyToClipboard } from '../utils/index.js';
 import './jd-tool-card.js';
 import './jd-slash-menu.js';
@@ -62,6 +62,8 @@ export class JDChatView extends LitElement {
   @property({ type: String }) selectedAgentId = '';
   @property({ type: Array }) models: Model[] = [];
   @property({ type: String }) selectedModel = '';
+  @property({ type: Array }) sessions: SidebarSessionItem[] = [];
+  @property({ type: String }) currentSessionKey = '';
 
   @state() private inputValue = '';
   @state() private copiedMessageId: string | null = null;
@@ -406,6 +408,42 @@ export class JDChatView extends LitElement {
     `;
   }
 
+  private getAgentLabel(agentId: string): string {
+    const agent = this.agents.find(a => a.id === agentId);
+    if (!agent) return agentId;
+    return agent.name || agent.identity?.name || agentId;
+  }
+
+  private renderSessionOptions() {
+    // Group sessions by agent prefix (key format: "agentId:sessionKey")
+    const grouped = new Map<string, SidebarSessionItem[]>();
+    for (const s of this.sessions) {
+      const colonIdx = s.key.indexOf(':');
+      const agentId = colonIdx > 0 ? s.key.slice(0, colonIdx) : '';
+      const group = grouped.get(agentId) || [];
+      group.push(s);
+      grouped.set(agentId, group);
+    }
+
+    const result: unknown[] = [];
+    for (const [agentId, sessions] of grouped) {
+      const label = agentId ? this.getAgentLabel(agentId) : 'default';
+      result.push(html`
+        <optgroup label=${label}>
+          ${sessions.map(s => {
+            const sessionLabel = s.displayName || s.title || s.key;
+            return html`
+              <option value=${s.key} ?selected=${s.key === this.currentSessionKey}>
+                ${sessionLabel}
+              </option>
+            `;
+          })}
+        </optgroup>
+      `);
+    }
+    return result;
+  }
+
   render() {
     const hasMessages = this.messages.length > 0 || this.streamingText;
     const groups = this.groupMessages(this.messages);
@@ -420,18 +458,16 @@ export class JDChatView extends LitElement {
                 <div class="chat-selector">
                   <select
                     class="chat-selector__select"
-                    .value=${this.selectedAgentId}
-                    @change=${(e: Event) => this.dispatchEvent(new CustomEvent('agent-change', {
-                      detail: (e.target as HTMLSelectElement).value,
+                    .value=${this.currentSessionKey}
+                    @change=${(e: Event) => this.dispatchEvent(new CustomEvent('session-select', {
+                      detail: { key: (e.target as HTMLSelectElement).value },
                       bubbles: true, composed: true,
                     }))}
                   >
-                    ${this.agents.length === 0 ? html`<option>JDClaw 助手</option>` : nothing}
-                    ${this.agents.map(a => html`
-                      <option value=${a.id} ?selected=${a.id === this.selectedAgentId}>
-                        ${a.identity?.emoji ? a.identity.emoji + ' ' : ''}${a.name || a.identity?.name || a.id}
-                      </option>
-                    `)}
+                    ${this.agents.length === 0 && this.sessions.length === 0
+                      ? html`<option>JDClaw 助手</option>`
+                      : nothing}
+                    ${this.renderSessionOptions()}
                   </select>
                 </div>
                 <div class="chat-selector">
