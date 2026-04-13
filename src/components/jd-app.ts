@@ -309,11 +309,12 @@ export class JdApp extends LitElement {
     super.connectedCallback();
     this.gatewayToken = resolveGatewayToken();
 
-    // Restore settings
+    // Restore settings & apply theme
     const settings = loadSettings();
     if (settings.lastSessionKey) {
       this.appState = { ...this.appState, sessionKey: settings.lastSessionKey };
     }
+    this.applyTheme(settings.theme || 'dark');
 
     this.connect();
     this.startSessionPoll();
@@ -330,6 +331,16 @@ export class JdApp extends LitElement {
     this.disconnect();
     this.stopSessionPoll();
     this.unsubscribeRoute?.();
+  }
+
+  // ── Theme ──────────────────────────────────────────────────────────────────
+
+  private applyTheme(theme: string) {
+    let resolved = theme;
+    if (theme === 'auto') {
+      resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.setAttribute('data-theme', resolved);
   }
 
   // ── Gateway Connection ──────────────────────────────────────────────────────
@@ -1288,7 +1299,9 @@ export class JdApp extends LitElement {
           ></jd-sessions-view>
         `;
       case 'settings':
-        return html`<jd-settings-panel></jd-settings-panel>`;
+        return html`<jd-settings-panel @settings-change=${(e: CustomEvent) => {
+          if (e.detail.key === 'theme') this.applyTheme(e.detail.value);
+        }}></jd-settings-panel>`;
       case 'agents':
         return html`
           <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);">

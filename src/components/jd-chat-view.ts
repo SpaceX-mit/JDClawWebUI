@@ -64,10 +64,75 @@ export class JDChatView extends LitElement {
   @state() private expandedThinking: Set<string> = new Set();
   @state() private slashMenuOpen = false;
   @state() private slashQuery = '';
+  @state() private userScrolledUp = false;
+
+  private scrollObserver: ResizeObserver | null = null;
+
+  connectedCallback() {
+    super.connectedCallback();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.scrollObserver?.disconnect();
+  }
+
+  firstUpdated() {
+    // Scroll to bottom on initial load (page refresh with history)
+    requestAnimationFrame(() => this.scrollToBottom());
+
+    // Watch for content size changes (images loading, etc.)
+    const thread = this.querySelector('.chat-thread');
+    if (thread) {
+      thread.addEventListener('scroll', this.handleThreadScroll);
+      this.scrollObserver = new ResizeObserver(() => {
+        if (!this.userScrolledUp) this.scrollToBottom();
+      });
+      // Observe the thread's scroll content
+      for (const child of thread.children) {
+        this.scrollObserver.observe(child);
+      }
+    }
+  }
 
   updated(changedProperties: Map<string, unknown>) {
     if (changedProperties.has('draft')) {
       this.inputValue = this.draft;
+    }
+
+    const shouldScroll =
+      changedProperties.has('messages') ||
+      changedProperties.has('streamingText') ||
+      changedProperties.has('sending') ||
+      changedProperties.has('toolStreamEntries');
+
+    if (shouldScroll && !this.userScrolledUp) {
+      requestAnimationFrame(() => this.scrollToBottom());
+    }
+
+    // Re-observe new children after messages update
+    if (changedProperties.has('messages') && this.scrollObserver) {
+      const thread = this.querySelector('.chat-thread');
+      if (thread) {
+        this.scrollObserver.disconnect();
+        for (const child of thread.children) {
+          this.scrollObserver.observe(child);
+        }
+      }
+    }
+  }
+
+  private handleThreadScroll = () => {
+    const thread = this.querySelector('.chat-thread');
+    if (!thread) return;
+    const distanceFromBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight;
+    this.userScrolledUp = distanceFromBottom > 80;
+  };
+
+  private scrollToBottom() {
+    const thread = this.querySelector('.chat-thread');
+    if (thread) {
+      thread.scrollTop = thread.scrollHeight;
     }
   }
 

@@ -10,7 +10,7 @@ function getDefaultGatewayUrl(): string {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   gatewayUrl: getDefaultGatewayUrl(),
-  theme: 'dark',
+  theme: 'light',
   language: 'zh-CN',
   fontSize: 'medium',
   streamingEnabled: true,
