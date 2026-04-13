@@ -414,6 +414,15 @@ export class JDSidebar extends LitElement {
     }
   }
 
+  private handleModelChange(e: Event) {
+    const select = e.target as HTMLSelectElement;
+    this.dispatchEvent(new CustomEvent('model-change', {
+      detail: select.value,
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
   private formatTime(timestamp: number): string {
     const now = Date.now();
     const diff = now - timestamp;
@@ -489,9 +498,9 @@ export class JDSidebar extends LitElement {
 
       <div class="model-selector">
         <div class="agent-label">模型</div>
-        <select class="agent-select">
+        <select class="agent-select" @change=${this.handleModelChange}>
           ${this.models.map(model => html`
-            <option value=${model.id}>${model.name}</option>
+            <option value=${model.id} ?selected=${model.id === this.selectedModel}>${model.name}</option>
           `)}
         </select>
       </div>

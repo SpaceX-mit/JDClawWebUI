@@ -6,6 +6,7 @@ import type {
   ChatStreamSegment,
   ExecApprovalRequest,
   Message,
+  Model,
   SessionsListResult,
   SidebarSessionItem,
   ToolStreamEntry,
@@ -286,6 +287,8 @@ export class JdApp extends LitElement {
   @state() private toolStreamEntries: ToolStreamEntry[] = [];
   @state() private chatStreamSegments: ChatStreamSegment[] = [];
   @state() private execApprovalQueue: ExecApprovalRequest[] = [];
+  @state() private models: Model[] = [];
+  @state() private selectedModel = '';
 
   // ── Private ────────────────────────────────────────────────────────────────
 
@@ -705,6 +708,7 @@ export class JdApp extends LitElement {
         this.sendRequest('sessions.subscribe', {});
         this.requestSessions();
         this.requestChatHistory();
+        this.sendRequest('models.list', {});
       }, 100);
       return;
     }
@@ -726,6 +730,23 @@ export class JdApp extends LitElement {
           const preferredSession =
             sessions.find((session) => session.key === DEFAULT_SESSION_KEY) ?? sessions[0];
           this.handleSessionSelect(preferredSession.key);
+        }
+        return;
+      }
+
+      case 'models.list': {
+        const rawModels = Array.isArray(payload.models) ? payload.models : [];
+        this.models = rawModels.map((m: Record<string, unknown>) => ({
+          id: typeof m.id === 'string' ? m.id : '',
+          name: typeof m.name === 'string' ? m.name : (typeof m.id === 'string' ? m.id : ''),
+          provider: typeof m.provider === 'string' ? m.provider : '',
+          description: typeof m.description === 'string' ? m.description : undefined,
+          maxTokens: typeof m.maxTokens === 'number' ? m.maxTokens : undefined,
+          supportsImages: typeof m.supportsImages === 'boolean' ? m.supportsImages : undefined,
+          supportsTools: typeof m.supportsTools === 'boolean' ? m.supportsTools : undefined,
+        })) as Model[];
+        if (!this.selectedModel && this.models.length > 0) {
+          this.selectedModel = this.sessionsResult?.defaults?.model || this.models[0].id;
         }
         return;
       }
@@ -954,6 +975,10 @@ export class JdApp extends LitElement {
 
     if (stream === 'tool') {
       this.handleToolStreamEvent(runId, sessionKey, data);
+    } else if (stream === 'thinking') {
+      this.handleThinkingStreamEvent(runId, data);
+    } else if (stream === 'lifecycle') {
+      this.handleLifecycleStreamEvent(data);
     }
   }
 
@@ -1024,6 +1049,48 @@ export class JdApp extends LitElement {
       this.chatStreamSegments = this.chatStreamSegments.map(s =>
         s.toolCallId === toolCallId ? { ...s, status: 'completed' as const, content: output || '' } : s
       );
+    }
+  }
+
+  private handleThinkingStreamEvent(runId: string, data: Record<string, unknown>) {
+    const phase = typeof data.phase === 'string' ? data.phase : '';
+    const text = typeof data.text === 'string' ? data.text : '';
+
+    if (phase === 'start') {
+      this.chatStreamSegments = [...this.chatStreamSegments, {
+        type: 'thinking',
+        id: `thinking:${runId}:${Date.now()}`,
+        content: '',
+        timestamp: Date.now(),
+        status: 'running',
+      }];
+    } else if ((phase === 'delta' || phase === 'update') && text) {
+      const segments = [...this.chatStreamSegments];
+      let lastIdx = -1;
+      for (let i = segments.length - 1; i >= 0; i--) {
+        if (segments[i].type === 'thinking' && segments[i].status === 'running') {
+          lastIdx = i;
+          break;
+        }
+      }
+      if (lastIdx >= 0) {
+        segments[lastIdx] = { ...segments[lastIdx], content: segments[lastIdx].content + text };
+        this.chatStreamSegments = segments;
+      }
+    } else if (phase === 'end') {
+      this.chatStreamSegments = this.chatStreamSegments.map(s =>
+        s.type === 'thinking' && s.status === 'running'
+          ? { ...s, status: 'completed' as const }
+          : s
+      );
+    }
+  }
+
+  private handleLifecycleStreamEvent(data: Record<string, unknown>) {
+    const phase = typeof data.phase === 'string' ? data.phase : '';
+    const message = typeof data.message === 'string' ? data.message : '';
+    if (phase === 'error' && message) {
+      this.pushSystemMessage(message);
     }
   }
 
@@ -1124,6 +1191,8 @@ export class JdApp extends LitElement {
       sending: false,
       runId: null,
     };
+    this.toolStreamEntries = [];
+    this.chatStreamSegments = [];
     this.resetChatInputHeight();
     saveSettings({ lastSessionKey: key });
     if (this.appState.connected) {
@@ -1143,6 +1212,8 @@ export class JdApp extends LitElement {
         runId: null,
         chatMessage: '',
       };
+      this.toolStreamEntries = [];
+      this.chatStreamSegments = [];
       this.resetChatInputHeight();
       return;
     }
@@ -1156,6 +1227,17 @@ export class JdApp extends LitElement {
   private handleRenameSession(key: string, label: string) {
     if (!this.appState.connected) return;
     this.sendRequest('sessions.patch', { key, label });
+  }
+
+  private handleModelChange(modelId: string) {
+    if (!modelId || modelId === this.selectedModel) return;
+    this.selectedModel = modelId;
+    if (this.appState.connected) {
+      this.sendRequest('sessions.patch', {
+        key: this.appState.sessionKey,
+        model: modelId,
+      });
+    }
   }
 
   private async handleDeleteSession(key: string) {
@@ -1378,6 +1460,8 @@ export class JdApp extends LitElement {
             .sessions=${this.appState.sessions as SidebarSessionItem[]}
             .currentSessionKey=${this.appState.sessionKey}
             .currentRoute=${this.currentRoute}
+            .models=${this.models}
+            .selectedModel=${this.selectedModel}
             @new-session=${() => this.handleNewSession()}
             @session-select=${(e: CustomEvent) => {
               this.handleSessionSelect(e.detail.key);
@@ -1386,6 +1470,7 @@ export class JdApp extends LitElement {
             @delete-session=${(e: CustomEvent) => this.handleDeleteSession(e.detail.key)}
             @rename-session=${(e: CustomEvent) => this.handleRenameSession(e.detail.key, e.detail.label)}
             @route-change=${(e: CustomEvent) => this.handleRouteChange(e)}
+            @model-change=${(e: CustomEvent) => this.handleModelChange(e.detail)}
           ></jd-sidebar>
         </aside>
 
@@ -1408,6 +1493,23 @@ export class JdApp extends LitElement {
                   : this.currentRoute === 'settings' ? '设置'
                   : 'JDClaw'}
               </span>
+              ${this.models.length > 0 ? html`
+                <select
+                  class="jd-topbar__model-select"
+                  .value=${this.selectedModel}
+                  @change=${(e: Event) => this.handleModelChange((e.target as HTMLSelectElement).value)}
+                >
+                  ${this.models.map(m => html`
+                    <option value=${m.id} ?selected=${m.id === this.selectedModel}>${m.name}</option>
+                  `)}
+                </select>
+              ` : nothing}
+            </div>
+            <div class="jd-topbar__center">
+              <div class="jd-topbar__status">
+                <span class="jd-topbar__status-dot ${this.appState.connected ? 'connected' : ''}"></span>
+                <span class="jd-topbar__status-text">${this.appState.connected ? '已连接' : '未连接'}</span>
+              </div>
             </div>
             <div class="jd-topbar__right">
               <button

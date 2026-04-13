@@ -306,6 +306,49 @@ jd-chat-view {
   gap: 8px;
 }
 
+.jd-topbar__center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jd-topbar__status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.jd-topbar__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.jd-topbar__status-dot.connected {
+  background: var(--success);
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+}
+
+.jd-topbar__model-select {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.jd-topbar__model-select:focus {
+  border-color: var(--accent);
+}
+
 /* ── Chat Area ────────────────────────────────────────────────────────────── */
 
 .jd-chat {
@@ -1212,6 +1255,35 @@ jd-chat-view {
   white-space: pre-wrap;
   max-height: 300px;
   overflow-y: auto;
+}
+
+/* ── Thinking Segment (streaming) ────────────────────────────────────────── */
+
+.chat-thinking-segment {
+  padding: 10px 14px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--accent);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  white-space: pre-wrap;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.chat-thinking-segment.streaming {
+  animation: pulsing-border 1.5s ease-out infinite;
+}
+
+.chat-thinking-segment .thinking-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  letter-spacing: 0.03em;
 }
 
 /* ── Input Area ──────────────────────────────────────────────────────────── */

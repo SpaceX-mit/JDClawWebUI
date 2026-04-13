@@ -104,7 +104,8 @@ export class JDChatView extends LitElement {
       changedProperties.has('messages') ||
       changedProperties.has('streamingText') ||
       changedProperties.has('sending') ||
-      changedProperties.has('toolStreamEntries');
+      changedProperties.has('toolStreamEntries') ||
+      changedProperties.has('chatStreamSegments');
 
     if (shouldScroll && !this.userScrolledUp) {
       requestAnimationFrame(() => this.scrollToBottom());
@@ -423,6 +424,21 @@ export class JDChatView extends LitElement {
                       <div class="chat-bubble streaming">
                         ${unsafeHTML(DOMPurify.sanitize(marked(this.streamingText!) as string))}
                       </div>
+                    </div>
+                  </div>
+                ` : nothing}
+                ${this.chatStreamSegments.filter(s => s.type === 'thinking' && s.content).length > 0 ? html`
+                  <div class="chat-group assistant">
+                    <div class="chat-avatar assistant">A</div>
+                    <div class="chat-group-messages">
+                      ${this.chatStreamSegments
+                        .filter(s => s.type === 'thinking' && s.content)
+                        .map(seg => html`
+                          <div class="chat-thinking-segment ${seg.status === 'running' ? 'streaming' : ''}">
+                            <div class="thinking-label">${seg.status === 'running' ? '思考中...' : '思考过程'}</div>
+                            <div class="thinking-content">${seg.content}</div>
+                          </div>
+                        `)}
                     </div>
                   </div>
                 ` : nothing}
