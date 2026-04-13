@@ -524,8 +524,7 @@ export class JdApp extends LitElement {
 
     this.sendRequest('chat.history', {
       sessionKey: this.appState.sessionKey,
-      limit: 50,
-      maxChars: 20000,
+      limit: 200,
     });
   }
 
@@ -689,6 +688,7 @@ export class JdApp extends LitElement {
       };
       this.reconnectAttempts = 0;
       setTimeout(() => {
+        this.sendRequest('sessions.subscribe', {});
         this.requestSessions();
         this.requestChatHistory();
       }, 100);
@@ -725,7 +725,7 @@ export class JdApp extends LitElement {
 
         this.appState = {
           ...this.appState,
-          messages: mergeMessages([], normalized),
+          messages: normalized,
         };
         return;
       }
@@ -860,9 +860,13 @@ export class JdApp extends LitElement {
           stream: null,
           streamStartedAt: null,
         };
-        // Clean up tool/segment state on final
+        // If tool events were seen, reload history to get persisted tool results
+        const hadToolEvents = this.toolStreamEntries.length > 0;
         this.toolStreamEntries = [];
         this.chatStreamSegments = [];
+        if (hadToolEvents) {
+          this.requestChatHistory();
+        }
         return;
       }
 
@@ -983,12 +987,18 @@ export class JdApp extends LitElement {
         status: 'running',
       }];
     } else if (phase === 'update') {
-      const output = typeof data.output === 'string' ? data.output : '';
+      const partialResult = data.partialResult ?? data.output;
+      const output = typeof partialResult === 'string' ? partialResult : '';
       this.toolStreamEntries = this.toolStreamEntries.map(e =>
         e.toolCallId === toolCallId ? { ...e, output: e.output + output } : e
       );
     } else if (phase === 'result') {
-      const output = typeof data.output === 'string' ? data.output : '';
+      const result = data.result ?? data.output;
+      const output = typeof result === 'string'
+        ? result
+        : (isRecord(result) && typeof (result as Record<string, unknown>).text === 'string')
+          ? (result as Record<string, unknown>).text as string
+          : result ? JSON.stringify(result) : '';
       this.toolStreamEntries = this.toolStreamEntries.map(e =>
         e.toolCallId === toolCallId ? {
           ...e,
@@ -1004,18 +1014,28 @@ export class JdApp extends LitElement {
   }
 
   private handleExecApprovalRequested(payload: Record<string, unknown>) {
-    const id = typeof payload.id === 'string' ? payload.id : crypto.randomUUID();
-    const sessionKey = typeof payload.sessionKey === 'string' ? payload.sessionKey : '';
-    const runId = typeof payload.runId === 'string' ? payload.runId : '';
-    const toolName = typeof payload.toolName === 'string' ? payload.toolName : '';
-    const toolArgs = isRecord(payload.toolArgs) ? payload.toolArgs as Record<string, unknown> : {};
-    const command = typeof payload.command === 'string' ? payload.command : undefined;
-    const expiresAtMs = typeof payload.expiresAtMs === 'number' ? payload.expiresAtMs : Date.now() + 60000;
+    const id = typeof payload.id === 'string' ? payload.id : '';
+    if (!id) return;
+
+    const request = isRecord(payload.request) ? payload.request : {};
+    const command = typeof request.command === 'string' ? request.command : '';
+    if (!command) return;
+
+    const createdAtMs = typeof payload.createdAtMs === 'number' ? payload.createdAtMs : 0;
+    const expiresAtMs = typeof payload.expiresAtMs === 'number' ? payload.expiresAtMs : 0;
+    if (!createdAtMs || !expiresAtMs) return;
+
+    const sessionKey = typeof request.sessionKey === 'string' ? request.sessionKey : '';
 
     this.execApprovalQueue = [...this.execApprovalQueue, {
-      id, sessionKey, runId, toolName, toolArgs, command,
+      id,
+      sessionKey,
+      runId: '',
+      toolName: 'Bash',
+      toolArgs: { command },
+      command,
       expiresAt: expiresAtMs,
-      timestamp: Date.now(),
+      timestamp: createdAtMs,
     }];
   }
 
@@ -1313,7 +1333,7 @@ export class JdApp extends LitElement {
           if (this.appState.connected) {
             this.sendRequest('exec.approval.resolve', {
               id: approval.id,
-              approved,
+              decision: approved ? 'approved' : 'denied',
             });
           }
           this.execApprovalQueue = this.execApprovalQueue.filter(a => a.id !== approval.id);
