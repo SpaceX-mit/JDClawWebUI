@@ -14,10 +14,10 @@ export class JDStatusBar extends LitElement {
       justify-content: space-between;
       height: 28px;
       padding: 0 12px;
-      background: var(--jd-bg-secondary, #f9fafb);
-      border-top: 1px solid var(--jd-border, #e5e7eb);
+      background: var(--bg-secondary, #f7f7f8);
+      border-top: 1px solid var(--border, #e8e8ec);
       font-size: 12px;
-      color: var(--jd-text-muted, #9ca3af);
+      color: var(--text-muted, #8c8c9a);
     }
 
     .status-left,
@@ -37,15 +37,15 @@ export class JDStatusBar extends LitElement {
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: var(--jd-text-muted, #9ca3af);
+      background: var(--text-muted, #8c8c9a);
     }
 
     .status-dot.connected {
-      background: var(--jd-secondary, #10b981);
+      background: var(--success, #22c55e);
     }
 
     .status-dot.sending {
-      background: var(--jd-warning, #f59e0b);
+      background: var(--warning, #f59e0b);
       animation: pulse 1s ease-in-out infinite;
     }
 
@@ -67,8 +67,8 @@ export class JDStatusBar extends LitElement {
       min-width: 16px;
       height: 16px;
       padding: 0 4px;
-      background: var(--jd-bg-tertiary, #f3f4f6);
-      border: 1px solid var(--jd-border, #e5e7eb);
+      background: var(--bg-tertiary, #f0f0f2);
+      border: 1px solid var(--border, #e8e8ec);
       border-radius: 3px;
       font-size: 10px;
       font-weight: 500;

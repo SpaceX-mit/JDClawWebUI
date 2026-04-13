@@ -61,7 +61,7 @@ export class JdToast extends LitElement {
     .toast-item.success { border-left: 4px solid var(--success, #22c55e); }
     .toast-item.error   { border-left: 4px solid var(--danger, #ef4444); }
     .toast-item.warning { border-left: 4px solid var(--warning, #f59e0b); }
-    .toast-item.info    { border-left: 4px solid var(--accent, #6366f1); }
+    .toast-item.info    { border-left: 4px solid var(--accent, #8abe24); }
 
     .toast-icon {
       flex-shrink: 0;
@@ -71,7 +71,7 @@ export class JdToast extends LitElement {
     .toast-icon.success { color: var(--success, #22c55e); }
     .toast-icon.error   { color: var(--danger, #ef4444); }
     .toast-icon.warning { color: var(--warning, #f59e0b); }
-    .toast-icon.info    { color: var(--accent, #6366f1); }
+    .toast-icon.info    { color: var(--accent, #8abe24); }
 
     .toast-message {
       flex: 1;

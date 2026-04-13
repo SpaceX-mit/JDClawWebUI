@@ -89,7 +89,7 @@ export class JdConfirmDialog extends LitElement {
       color: #fff;
     }
     .btn-confirm.normal {
-      background: var(--accent, #6366f1);
+      background: var(--accent, #8abe24);
     }
     .btn-confirm.normal:hover { opacity: 0.85; }
     .btn-confirm.danger {

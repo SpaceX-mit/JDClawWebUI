@@ -9,7 +9,7 @@ export class JdSettingsPanel extends LitElement {
     :host {
       display: block;
       padding: 24px;
-      color: var(--text-primary, #f4f4f5);
+      color: var(--text-primary, #1a1a2e);
       max-width: 600px;
       margin: 0 auto;
     }
@@ -27,7 +27,7 @@ export class JdSettingsPanel extends LitElement {
     .settings-group-title {
       font-size: 14px;
       font-weight: 600;
-      color: var(--text-muted, #71717a);
+      color: var(--text-muted, #8c8c9a);
       text-transform: uppercase;
       margin-bottom: 12px;
     }
@@ -37,7 +37,7 @@ export class JdSettingsPanel extends LitElement {
       align-items: center;
       justify-content: space-between;
       padding: 12px 0;
-      border-bottom: 1px solid var(--border, #27272a);
+      border-bottom: 1px solid var(--border, #e8e8ec);
     }
 
     .setting-label {
@@ -47,7 +47,7 @@ export class JdSettingsPanel extends LitElement {
 
     .setting-description {
       font-size: 12px;
-      color: var(--text-muted, #71717a);
+      color: var(--text-muted, #8c8c9a);
       margin-top: 2px;
     }
 
@@ -58,10 +58,10 @@ export class JdSettingsPanel extends LitElement {
 
     .radio-btn {
       padding: 6px 14px;
-      border: 1px solid var(--border, #27272a);
-      border-radius: 6px;
-      background: var(--bg-tertiary, #1a1a24);
-      color: var(--text-primary, #f4f4f5);
+      border: 1px solid var(--border, #e8e8ec);
+      border-radius: 8px;
+      background: var(--bg-tertiary, #f0f0f2);
+      color: var(--text-primary, #1a1a2e);
       font-size: 13px;
       font-family: inherit;
       cursor: pointer;
@@ -69,21 +69,21 @@ export class JdSettingsPanel extends LitElement {
     }
 
     .radio-btn:hover {
-      border-color: var(--accent, #6366f1);
+      border-color: var(--accent, #8abe24);
     }
 
     .radio-btn.active {
-      background: var(--accent, #6366f1);
-      color: white;
-      border-color: var(--accent, #6366f1);
+      background: var(--accent, #8abe24);
+      color: #1a1a2e;
+      border-color: var(--accent, #8abe24);
     }
 
     select, input[type="text"] {
       padding: 8px 12px;
-      border: 1px solid var(--border, #27272a);
-      border-radius: 6px;
-      background: var(--bg-tertiary, #1a1a24);
-      color: var(--text-primary, #f4f4f5);
+      border: 1px solid var(--border, #e8e8ec);
+      border-radius: 8px;
+      background: var(--bg-tertiary, #f0f0f2);
+      color: var(--text-primary, #1a1a2e);
       font-size: 14px;
       font-family: inherit;
       min-width: 200px;
@@ -91,7 +91,7 @@ export class JdSettingsPanel extends LitElement {
 
     select:focus, input[type="text"]:focus {
       outline: none;
-      border-color: var(--accent, #6366f1);
+      border-color: var(--accent, #8abe24);
     }
   `;
 

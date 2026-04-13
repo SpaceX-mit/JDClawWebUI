@@ -11,8 +11,8 @@ export class JDSidebar extends LitElement {
       display: flex;
       flex-direction: column;
       height: 100%;
-      background: var(--jd-bg-primary, #ffffff);
-      color: var(--jd-text-primary, #111827);
+      background: var(--bg-secondary, #f7f7f8);
+      color: var(--text-primary, #1a1a2e);
     }
 
     .sidebar-header {
@@ -20,29 +20,29 @@ export class JDSidebar extends LitElement {
       align-items: center;
       justify-content: space-between;
       padding: 16px;
-      border-bottom: 1px solid var(--jd-border, #e5e7eb);
+      border-bottom: 1px solid var(--border, #e8e8ec);
     }
 
     .logo {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       font-size: 18px;
       font-weight: 600;
-      color: var(--jd-primary, #4f46e5);
+      color: var(--text-primary, #1a1a2e);
     }
 
     .logo-icon {
       width: 28px;
-      height: 28px;
-      background: linear-gradient(135deg, #4f46e5, #7c3aed);
-      border-radius: 6px;
+      height: 34px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: white;
-      font-weight: bold;
-      font-size: 12px;
+    }
+
+    .logo-icon img {
+      width: 100%;
+      height: 100%;
     }
 
     .new-chat-btn {
@@ -53,14 +53,14 @@ export class JDSidebar extends LitElement {
       height: 36px;
       border: none;
       border-radius: 8px;
-      background: var(--jd-primary, #4f46e5);
-      color: white;
+      background: var(--accent, #8abe24);
+      color: #1a1a2e;
       cursor: pointer;
       transition: all 0.2s;
     }
 
     .new-chat-btn:hover {
-      background: var(--jd-primary-hover, #4338ca);
+      background: var(--accent-hover, #7aad14);
       transform: scale(1.05);
     }
 
@@ -78,12 +78,12 @@ export class JDSidebar extends LitElement {
       font-size: 12px;
       font-weight: 600;
       text-transform: uppercase;
-      color: var(--jd-text-muted, #9ca3af);
+      color: var(--text-muted, #8c8c9a);
       cursor: pointer;
     }
 
     .section-title:hover {
-      color: var(--jd-text-secondary, #6b7280);
+      color: var(--text-secondary, #4a4a5a);
     }
 
     .session-list {
@@ -103,17 +103,17 @@ export class JDSidebar extends LitElement {
     }
 
     .session-item:hover {
-      background: var(--jd-bg-tertiary, #f3f4f6);
+      background: var(--bg-tertiary, #f0f0f2);
     }
 
     .session-item.active {
-      background: var(--jd-primary, #4f46e5);
-      color: white;
+      background: var(--accent, #8abe24);
+      color: #1a1a2e;
     }
 
     .session-item.active .session-time,
     .session-item.active .session-count {
-      color: rgba(255, 255, 255, 0.7);
+      color: rgba(26, 26, 46, 0.6);
     }
 
     .session-icon {
@@ -141,7 +141,7 @@ export class JDSidebar extends LitElement {
       align-items: center;
       gap: 8px;
       font-size: 12px;
-      color: var(--jd-text-muted, #9ca3af);
+      color: var(--text-muted, #8c8c9a);
       margin-top: 2px;
     }
 
@@ -152,7 +152,7 @@ export class JDSidebar extends LitElement {
       border: none;
       border-radius: 4px;
       background: transparent;
-      color: var(--jd-text-muted, #9ca3af);
+      color: var(--text-muted, #8c8c9a);
       cursor: pointer;
       transition: all 0.15s;
       display: flex;
@@ -165,17 +165,17 @@ export class JDSidebar extends LitElement {
     }
 
     .session-delete:hover {
-      background: var(--jd-danger, #ef4444);
+      background: var(--danger, #ef4444);
       color: white;
     }
 
     .session-title-input {
       width: 100%;
       padding: 2px 4px;
-      border: 1px solid var(--jd-primary, #4f46e5);
+      border: 1px solid var(--accent, #8abe24);
       border-radius: 4px;
-      background: var(--jd-bg-secondary, #f9fafb);
-      color: var(--jd-text-primary, #111827);
+      background: var(--bg-secondary, #f7f7f8);
+      color: var(--text-primary, #1a1a2e);
       font-size: 14px;
       font-weight: 500;
       font-family: inherit;
@@ -188,7 +188,7 @@ export class JDSidebar extends LitElement {
       flex-direction: column;
       gap: 2px;
       padding: 8px;
-      border-bottom: 1px solid var(--jd-border, #e5e7eb);
+      border-bottom: 1px solid var(--border, #e8e8ec);
     }
 
     .nav-item {
@@ -199,7 +199,7 @@ export class JDSidebar extends LitElement {
       border: none;
       border-radius: 8px;
       background: transparent;
-      color: var(--jd-text-secondary, #6b7280);
+      color: var(--text-secondary, #4a4a5a);
       cursor: pointer;
       font-size: 14px;
       font-family: inherit;
@@ -209,13 +209,13 @@ export class JDSidebar extends LitElement {
     }
 
     .nav-item:hover {
-      background: var(--jd-bg-tertiary, #f3f4f6);
-      color: var(--jd-text-primary, #111827);
+      background: var(--bg-tertiary, #f0f0f2);
+      color: var(--text-primary, #1a1a2e);
     }
 
     .nav-item.active {
-      background: var(--jd-primary, #4f46e5);
-      color: white;
+      background: var(--accent, #8abe24);
+      color: #1a1a2e;
     }
 
     .nav-icon {
@@ -230,36 +230,36 @@ export class JDSidebar extends LitElement {
 
     .agent-selector {
       padding: 12px;
-      border-top: 1px solid var(--jd-border, #e5e7eb);
+      border-top: 1px solid var(--border, #e8e8ec);
     }
 
     .agent-label {
       font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
-      color: var(--jd-text-muted, #9ca3af);
+      color: var(--text-muted, #8c8c9a);
       margin-bottom: 8px;
     }
 
     .agent-select {
       width: 100%;
       padding: 8px 12px;
-      border: 1px solid var(--jd-border, #e5e7eb);
+      border: 1px solid var(--border, #e8e8ec);
       border-radius: 6px;
-      background: var(--jd-bg-secondary, #f9fafb);
+      background: var(--bg-secondary, #f7f7f8);
       font-size: 14px;
       cursor: pointer;
-      color: var(--jd-text-primary, #111827);
+      color: var(--text-primary, #1a1a2e);
     }
 
     .agent-select:focus {
       outline: none;
-      border-color: var(--jd-primary, #4f46e5);
+      border-color: var(--accent, #8abe24);
     }
 
     .model-selector {
       padding: 12px;
-      border-top: 1px solid var(--jd-border, #e5e7eb);
+      border-top: 1px solid var(--border, #e8e8ec);
     }
   `;
 
@@ -433,7 +433,7 @@ export class JDSidebar extends LitElement {
     return html`
       <div class="sidebar-header">
         <div class="logo">
-          <div class="logo-icon">JD</div>
+          <div class="logo-icon"><img src="/logo.svg" alt="SpacemiT" /></div>
           <span>JDClaw</span>
         </div>
         <button class="new-chat-btn" @click=${this.handleNewChat} title="新建会话">

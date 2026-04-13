@@ -32,12 +32,12 @@ export class JDCommandPalette extends LitElement {
       position: relative;
       width: 560px;
       max-height: 480px;
-      background: var(--jd-bg-primary, #ffffff);
+      background: var(--bg-secondary, #f7f7f8);
       border-radius: 12px;
       box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
       overflow: hidden;
       animation: slideDown 0.2s ease;
-      color: var(--jd-text-primary, #111827);
+      color: var(--text-primary, #1a1a2e);
     }
 
     @keyframes slideDown {
@@ -49,13 +49,13 @@ export class JDCommandPalette extends LitElement {
       display: flex;
       align-items: center;
       padding: 16px;
-      border-bottom: 1px solid var(--jd-border, #e5e7eb);
+      border-bottom: 1px solid var(--border, #e8e8ec);
     }
 
     .search-icon {
       width: 20px;
       height: 20px;
-      color: var(--jd-text-muted, #9ca3af);
+      color: var(--text-muted, #8c8c9a);
       flex-shrink: 0;
     }
 
@@ -65,19 +65,19 @@ export class JDCommandPalette extends LitElement {
       border: none;
       background: transparent;
       font-size: 16px;
-      color: var(--jd-text-primary, #111827);
+      color: var(--text-primary, #1a1a2e);
       outline: none;
     }
 
     .search-input::placeholder {
-      color: var(--jd-text-muted, #9ca3af);
+      color: var(--text-muted, #8c8c9a);
     }
 
     .categories {
       display: flex;
       padding: 8px 16px;
       gap: 8px;
-      border-bottom: 1px solid var(--jd-border, #e5e7eb);
+      border-bottom: 1px solid var(--border, #e8e8ec);
       overflow-x: auto;
     }
 
@@ -85,8 +85,8 @@ export class JDCommandPalette extends LitElement {
       padding: 6px 12px;
       border: none;
       border-radius: 6px;
-      background: var(--jd-bg-secondary, #f9fafb);
-      color: var(--jd-text-secondary, #6b7280);
+      background: var(--bg-secondary, #f7f7f8);
+      color: var(--text-secondary, #4a4a5a);
       font-size: 13px;
       font-weight: 500;
       cursor: pointer;
@@ -95,12 +95,12 @@ export class JDCommandPalette extends LitElement {
     }
 
     .category:hover {
-      background: var(--jd-bg-tertiary, #f3f4f6);
+      background: var(--bg-tertiary, #f0f0f2);
     }
 
     .category.active {
-      background: var(--jd-primary, #4f46e5);
-      color: white;
+      background: var(--accent, #8abe24);
+      color: #1a1a2e;
     }
 
     .results {
@@ -121,12 +121,12 @@ export class JDCommandPalette extends LitElement {
 
     .result-item:hover,
     .result-item.selected {
-      background: var(--jd-bg-secondary, #f9fafb);
+      background: var(--bg-secondary, #f7f7f8);
     }
 
     .result-item.selected {
-      background: var(--jd-primary, #4f46e5);
-      color: white;
+      background: var(--accent, #8abe24);
+      color: #1a1a2e;
     }
 
     .result-icon {
@@ -136,14 +136,14 @@ export class JDCommandPalette extends LitElement {
       align-items: center;
       justify-content: center;
       border-radius: 8px;
-      background: var(--jd-bg-tertiary, #f3f4f6);
-      color: var(--jd-text-secondary, #6b7280);
+      background: var(--bg-tertiary, #f0f0f2);
+      color: var(--text-secondary, #4a4a5a);
       flex-shrink: 0;
     }
 
     .result-item.selected .result-icon {
-      background: rgba(255, 255, 255, 0.2);
-      color: white;
+      background: rgba(0, 0, 0, 0.1);
+      color: #1a1a2e;
     }
 
     .result-info {
@@ -154,40 +154,40 @@ export class JDCommandPalette extends LitElement {
     .result-title {
       font-size: 14px;
       font-weight: 500;
-      color: var(--jd-text-primary, #111827);
+      color: var(--text-primary, #1a1a2e);
     }
 
     .result-item.selected .result-title {
-      color: white;
+      color: #1a1a2e;
     }
 
     .result-description {
       font-size: 12px;
-      color: var(--jd-text-muted, #9ca3af);
+      color: var(--text-muted, #8c8c9a);
       margin-top: 2px;
     }
 
     .result-item.selected .result-description {
-      color: rgba(255, 255, 255, 0.7);
+      color: rgba(26, 26, 46, 0.7);
     }
 
     .result-shortcut {
       font-size: 12px;
-      color: var(--jd-text-muted, #9ca3af);
+      color: var(--text-muted, #8c8c9a);
       padding: 4px 8px;
-      background: var(--jd-bg-tertiary, #f3f4f6);
+      background: var(--bg-tertiary, #f0f0f2);
       border-radius: 4px;
     }
 
     .result-item.selected .result-shortcut {
-      background: rgba(255, 255, 255, 0.2);
-      color: white;
+      background: rgba(0, 0, 0, 0.1);
+      color: #1a1a2e;
     }
 
     .empty-state {
       padding: 32px;
       text-align: center;
-      color: var(--jd-text-muted, #9ca3af);
+      color: var(--text-muted, #8c8c9a);
     }
 
     .footer {
@@ -195,9 +195,9 @@ export class JDCommandPalette extends LitElement {
       align-items: center;
       justify-content: space-between;
       padding: 12px 16px;
-      border-top: 1px solid var(--jd-border, #e5e7eb);
+      border-top: 1px solid var(--border, #e8e8ec);
       font-size: 12px;
-      color: var(--jd-text-muted, #9ca3af);
+      color: var(--text-muted, #8c8c9a);
     }
 
     .footer-hint {
@@ -213,8 +213,8 @@ export class JDCommandPalette extends LitElement {
       min-width: 20px;
       height: 20px;
       padding: 0 6px;
-      background: var(--jd-bg-secondary, #f9fafb);
-      border: 1px solid var(--jd-border, #e5e7eb);
+      background: var(--bg-secondary, #f7f7f8);
+      border: 1px solid var(--border, #e8e8ec);
       border-radius: 4px;
       font-size: 11px;
       font-weight: 500;

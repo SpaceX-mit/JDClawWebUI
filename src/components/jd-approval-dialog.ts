@@ -55,8 +55,8 @@ export class JdApprovalDialog extends LitElement {
     .tool-name {
       display: inline-block;
       padding: 4px 10px;
-      background: rgba(99, 102, 241, 0.15);
-      color: var(--accent, #6366f1);
+      background: rgba(138, 190, 36, 0.15);
+      color: var(--accent, #8abe24);
       border-radius: 6px;
       font-size: 15px;
       font-weight: 600;
@@ -133,8 +133,8 @@ export class JdApprovalDialog extends LitElement {
     .btn-reject:hover { opacity: 0.85; }
 
     .btn-approve {
-      background: var(--accent, #6366f1);
-      color: #fff;
+      background: var(--accent, #8abe24);
+      color: #1a1a2e;
       border: none;
     }
     .btn-approve:hover { opacity: 0.85; }

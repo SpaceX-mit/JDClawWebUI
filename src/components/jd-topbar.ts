@@ -14,9 +14,9 @@ export class JDTopBar extends LitElement {
       justify-content: space-between;
       height: 56px;
       padding: 0 16px;
-      background: var(--jd-bg-primary, #ffffff);
-      border-bottom: 1px solid var(--jd-border, #e5e7eb);
-      color: var(--jd-text-primary, #111827);
+      background: var(--bg-secondary, #f7f7f8);
+      border-bottom: 1px solid var(--border, #e8e8ec);
+      color: var(--text-primary, #1a1a2e);
     }
 
     .topbar-left {
@@ -46,27 +46,27 @@ export class JDTopBar extends LitElement {
       border: none;
       border-radius: 8px;
       background: transparent;
-      color: var(--jd-text-secondary, #6b7280);
+      color: var(--text-secondary, #4a4a5a);
       cursor: pointer;
       transition: all 0.15s;
     }
 
     .btn:hover {
-      background: var(--jd-bg-tertiary, #f3f4f6);
-      color: var(--jd-text-primary, #111827);
+      background: var(--bg-tertiary, #f0f0f2);
+      color: var(--text-primary, #1a1a2e);
     }
 
     .btn.active {
-      background: var(--jd-primary, #4f46e5);
-      color: white;
+      background: var(--accent, #8abe24);
+      color: #1a1a2e;
     }
 
     .agent-name {
       font-size: 15px;
       font-weight: 600;
-      color: var(--jd-text-primary, #111827);
+      color: var(--text-primary, #1a1a2e);
       padding: 6px 12px;
-      background: var(--jd-bg-secondary, #f9fafb);
+      background: var(--bg-secondary, #f7f7f8);
       border-radius: 6px;
     }
 
@@ -75,23 +75,23 @@ export class JDTopBar extends LitElement {
       align-items: center;
       gap: 6px;
       font-size: 13px;
-      color: var(--jd-text-secondary, #6b7280);
+      color: var(--text-secondary, #4a4a5a);
     }
 
     .status-dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: var(--jd-text-muted, #9ca3af);
+      background: var(--text-muted, #8c8c9a);
     }
 
     .status-dot.connected {
-      background: var(--jd-secondary, #10b981);
-      box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+      background: var(--success, #22c55e);
+      box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
     }
 
     .status-dot.disconnected {
-      background: var(--jd-danger, #ef4444);
+      background: var(--danger, #ef4444);
     }
   `;
 

@@ -8,7 +8,7 @@ export class JdSessionsView extends LitElement {
     :host {
       display: block;
       padding: 24px;
-      color: var(--jd-text-primary, #111827);
+      color: var(--text-primary, #1a1a2e);
       max-width: 800px;
       margin: 0 auto;
     }
@@ -30,14 +30,14 @@ export class JdSessionsView extends LitElement {
       font-size: 12px;
       font-weight: 600;
       text-transform: uppercase;
-      color: var(--jd-text-muted, #9ca3af);
-      border-bottom: 2px solid var(--jd-border, #e5e7eb);
+      color: var(--text-muted, #8c8c9a);
+      border-bottom: 2px solid var(--border, #e8e8ec);
     }
 
     .sessions-table td {
       padding: 12px;
       font-size: 14px;
-      border-bottom: 1px solid var(--jd-border, #e5e7eb);
+      border-bottom: 1px solid var(--border, #e8e8ec);
     }
 
     .sessions-table tr.clickable {
@@ -46,7 +46,7 @@ export class JdSessionsView extends LitElement {
     }
 
     .sessions-table tr.clickable:hover {
-      background: var(--jd-bg-tertiary, #f3f4f6);
+      background: var(--bg-tertiary, #f0f0f2);
     }
 
     .session-name {
@@ -58,16 +58,16 @@ export class JdSessionsView extends LitElement {
       padding: 2px 8px;
       border-radius: 10px;
       font-size: 12px;
-      background: var(--jd-bg-tertiary, #f3f4f6);
-      color: var(--jd-text-secondary, #6b7280);
+      background: var(--bg-tertiary, #f0f0f2);
+      color: var(--text-secondary, #4a4a5a);
     }
 
     .delete-btn {
       padding: 4px 10px;
-      border: 1px solid var(--jd-border, #e5e7eb);
+      border: 1px solid var(--border, #e8e8ec);
       border-radius: 6px;
       background: transparent;
-      color: var(--jd-text-secondary, #6b7280);
+      color: var(--text-secondary, #4a4a5a);
       font-size: 12px;
       font-family: inherit;
       cursor: pointer;
@@ -75,15 +75,15 @@ export class JdSessionsView extends LitElement {
     }
 
     .delete-btn:hover {
-      background: var(--jd-danger, #ef4444);
+      background: var(--danger, #ef4444);
       color: white;
-      border-color: var(--jd-danger, #ef4444);
+      border-color: var(--danger, #ef4444);
     }
 
     .empty {
       text-align: center;
       padding: 48px 0;
-      color: var(--jd-text-muted, #9ca3af);
+      color: var(--text-muted, #8c8c9a);
       font-size: 14px;
     }
   `;
