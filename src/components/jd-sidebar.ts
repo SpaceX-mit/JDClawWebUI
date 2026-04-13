@@ -490,7 +490,7 @@ export class JDSidebar extends LitElement {
         <select class="agent-select" @change=${this.handleAgentChange}>
           ${this.agents.map(agent => html`
             <option value=${agent.id} ?selected=${agent.id === this.currentAgent?.id}>
-              ${agent.name}
+              ${agent.identity?.emoji ? agent.identity.emoji + ' ' : ''}${agent.name || agent.identity?.name || agent.id}
             </option>
           `)}
         </select>

@@ -108,15 +108,32 @@ export interface ModelConfig {
 // Agent Types
 // ============================================
 
+export interface AgentIdentity {
+  name?: string;
+  theme?: string;
+  emoji?: string;
+  avatar?: string;
+  avatarUrl?: string;
+}
+
+export interface AgentModel {
+  primary?: string;
+  fallbacks?: string[];
+}
+
 export interface Agent {
   id: string;
-  name: string;
-  description?: string;
-  avatar?: string;
-  defaultModel?: string;
-  skills?: string[];
-  createdAt: number;
-  updatedAt: number;
+  name?: string;
+  identity?: AgentIdentity;
+  workspace?: string;
+  model?: AgentModel;
+}
+
+export interface AgentsListResult {
+  defaultId: string;
+  mainKey: string;
+  scope: string;
+  agents: Agent[];
 }
 
 export interface AgentSkill {

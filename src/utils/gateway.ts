@@ -270,6 +270,20 @@ export async function toolsCatalog(client: GatewayClient): Promise<{
   return client.request('tools.catalog') as Promise<{ tools: unknown[] }>;
 }
 
+export async function agentsList(client: GatewayClient): Promise<{
+  defaultId: string;
+  mainKey: string;
+  scope: string;
+  agents: unknown[];
+}> {
+  return client.request('agents.list') as Promise<{
+    defaultId: string;
+    mainKey: string;
+    scope: string;
+    agents: unknown[];
+  }>;
+}
+
 // ─── Session Management ─────────────────────────────────────────────────────
 
 export interface SessionsPatchParams {

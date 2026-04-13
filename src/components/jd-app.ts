@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { icons } from '../icons.js';
 import type {
+  Agent,
   Attachment,
   ChatStreamSegment,
   ExecApprovalRequest,
@@ -289,6 +290,8 @@ export class JdApp extends LitElement {
   @state() private execApprovalQueue: ExecApprovalRequest[] = [];
   @state() private models: Model[] = [];
   @state() private selectedModel = '';
+  @state() private agents: Agent[] = [];
+  @state() private selectedAgentId = '';
 
   // ── Private ────────────────────────────────────────────────────────────────
 
@@ -709,6 +712,7 @@ export class JdApp extends LitElement {
         this.requestSessions();
         this.requestChatHistory();
         this.sendRequest('models.list', {});
+        this.sendRequest('agents.list', {});
       }, 100);
       return;
     }
@@ -747,6 +751,34 @@ export class JdApp extends LitElement {
         })) as Model[];
         if (!this.selectedModel && this.models.length > 0) {
           this.selectedModel = this.sessionsResult?.defaults?.model || this.models[0].id;
+        }
+        return;
+      }
+
+      case 'agents.list': {
+        const rawAgents = Array.isArray(payload.agents) ? payload.agents : [];
+        const defaultId = typeof payload.defaultId === 'string' ? payload.defaultId : '';
+        this.agents = rawAgents.map((a: Record<string, unknown>) => {
+          const identity = isRecord(a.identity) ? a.identity : {};
+          const model = isRecord(a.model) ? a.model : {};
+          return {
+            id: typeof a.id === 'string' ? a.id : '',
+            name: typeof a.name === 'string' ? a.name : undefined,
+            identity: {
+              name: typeof identity.name === 'string' ? identity.name : undefined,
+              emoji: typeof identity.emoji === 'string' ? identity.emoji : undefined,
+              avatar: typeof identity.avatar === 'string' ? identity.avatar : undefined,
+              avatarUrl: typeof identity.avatarUrl === 'string' ? identity.avatarUrl : undefined,
+            },
+            workspace: typeof a.workspace === 'string' ? a.workspace : undefined,
+            model: {
+              primary: typeof model.primary === 'string' ? model.primary : undefined,
+              fallbacks: Array.isArray(model.fallbacks) ? model.fallbacks as string[] : undefined,
+            },
+          } as Agent;
+        });
+        if (!this.selectedAgentId && this.agents.length > 0) {
+          this.selectedAgentId = defaultId || this.agents[0].id;
         }
         return;
       }
@@ -1218,7 +1250,9 @@ export class JdApp extends LitElement {
       return;
     }
 
-    const requestId = this.sendRequest('sessions.create', {});
+    const requestId = this.sendRequest('sessions.create', {
+      ...(this.selectedAgentId ? { agentId: this.selectedAgentId } : {}),
+    });
     if (!requestId) {
       this.pushSystemMessage('Gateway 未连接，无法创建新会话。');
     }
@@ -1238,6 +1272,11 @@ export class JdApp extends LitElement {
         model: modelId,
       });
     }
+  }
+
+  private handleAgentChange(agentId: string) {
+    if (!agentId || agentId === this.selectedAgentId) return;
+    this.selectedAgentId = agentId;
   }
 
   private async handleDeleteSession(key: string) {
@@ -1386,8 +1425,35 @@ export class JdApp extends LitElement {
         }}></jd-settings-panel>`;
       case 'agents':
         return html`
-          <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);">
-            助手管理（开发中）
+          <div class="jd-agents-page">
+            <div class="jd-agents-page__header">
+              <h2>助手管理</h2>
+              <span class="jd-agents-page__count">${this.agents.length} 个助手</span>
+            </div>
+            ${this.agents.length === 0 ? html`
+              <div class="jd-agents-page__empty">暂无助手，请检查 Gateway 连接</div>
+            ` : html`
+              <div class="jd-agents-page__list">
+                ${this.agents.map(agent => html`
+                  <div class="jd-agent-card ${agent.id === this.selectedAgentId ? 'active' : ''}"
+                    @click=${() => this.handleAgentChange(agent.id)}>
+                    <div class="jd-agent-card__avatar">
+                      ${agent.identity?.emoji || '🤖'}
+                    </div>
+                    <div class="jd-agent-card__info">
+                      <div class="jd-agent-card__name">${agent.name || agent.identity?.name || agent.id}</div>
+                      <div class="jd-agent-card__meta">
+                        ${agent.model?.primary ? html`<span>模型: ${agent.model.primary}</span>` : nothing}
+                        ${agent.workspace ? html`<span>${agent.workspace}</span>` : nothing}
+                      </div>
+                    </div>
+                    ${agent.id === this.selectedAgentId ? html`
+                      <div class="jd-agent-card__badge">当前</div>
+                    ` : nothing}
+                  </div>
+                `)}
+              </div>
+            `}
           </div>
         `;
       case 'chat':
@@ -1462,6 +1528,8 @@ export class JdApp extends LitElement {
             .currentRoute=${this.currentRoute}
             .models=${this.models}
             .selectedModel=${this.selectedModel}
+            .agents=${this.agents}
+            .currentAgent=${this.agents.find(a => a.id === this.selectedAgentId) || null}
             @new-session=${() => this.handleNewSession()}
             @session-select=${(e: CustomEvent) => {
               this.handleSessionSelect(e.detail.key);
@@ -1471,6 +1539,7 @@ export class JdApp extends LitElement {
             @rename-session=${(e: CustomEvent) => this.handleRenameSession(e.detail.key, e.detail.label)}
             @route-change=${(e: CustomEvent) => this.handleRouteChange(e)}
             @model-change=${(e: CustomEvent) => this.handleModelChange(e.detail)}
+            @agent-change=${(e: CustomEvent) => this.handleAgentChange(e.detail.id)}
           ></jd-sidebar>
         </aside>
 
@@ -1487,7 +1556,10 @@ export class JdApp extends LitElement {
               </button>
               <span class="jd-topbar__title">
                 ${this.currentRoute === 'chat'
-                  ? (this.appState.sessions.find(s => s.key === this.appState.sessionKey)?.displayName || 'JDClaw 助手')
+                  ? (this.appState.sessions.find(s => s.key === this.appState.sessionKey)?.displayName
+                    || this.agents.find(a => a.id === this.selectedAgentId)?.name
+                    || this.agents.find(a => a.id === this.selectedAgentId)?.identity?.name
+                    || 'JDClaw 助手')
                   : this.currentRoute === 'sessions' ? '会话管理'
                   : this.currentRoute === 'agents' ? '助手管理'
                   : this.currentRoute === 'settings' ? '设置'
