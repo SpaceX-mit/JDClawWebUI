@@ -1611,17 +1611,34 @@ export class JdApp extends LitElement {
               >
                 ${icons.menu}
               </button>
-              <span class="jd-topbar__title">
-                ${this.currentRoute === 'chat'
-                  ? (this.appState.sessions.find(s => s.key === this.appState.sessionKey)?.displayName
-                    || this.agents.find(a => a.id === this.selectedAgentId)?.name
-                    || this.agents.find(a => a.id === this.selectedAgentId)?.identity?.name
-                    || 'JDClaw 助手')
-                  : this.currentRoute === 'sessions' ? '会话管理'
-                  : this.currentRoute === 'agents' ? '助手管理'
-                  : this.currentRoute === 'settings' ? '设置'
-                  : 'JDClaw'}
-              </span>
+              ${this.currentRoute === 'chat' ? html`
+                ${this.agents.length > 1 ? html`
+                  <select
+                    class="jd-topbar__agent-select"
+                    .value=${this.selectedAgentId}
+                    @change=${(e: Event) => this.handleAgentChange((e.target as HTMLSelectElement).value)}
+                  >
+                    ${this.agents.map(a => html`
+                      <option value=${a.id} ?selected=${a.id === this.selectedAgentId}>
+                        ${a.identity?.emoji ? a.identity.emoji + ' ' : ''}${a.name || a.identity?.name || a.id}
+                      </option>
+                    `)}
+                  </select>
+                ` : html`
+                  <span class="jd-topbar__title">
+                    ${this.agents.find(a => a.id === this.selectedAgentId)?.name
+                      || this.agents.find(a => a.id === this.selectedAgentId)?.identity?.name
+                      || 'JDClaw 助手'}
+                  </span>
+                `}
+              ` : html`
+                <span class="jd-topbar__title">
+                  ${this.currentRoute === 'sessions' ? '会话管理'
+                    : this.currentRoute === 'agents' ? '助手管理'
+                    : this.currentRoute === 'settings' ? '设置'
+                    : 'JDClaw'}
+                </span>
+              `}
               ${this.models.length > 0 ? html`
                 <select
                   class="jd-topbar__model-select"
