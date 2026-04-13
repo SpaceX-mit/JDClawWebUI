@@ -180,7 +180,11 @@ export class GatewayClient {
 
 // ─── Factory ─────────────────────────────────────────────────────────────────
 
-export function createGatewayClient(url = 'ws://localhost:18789'): GatewayClient {
+export function createGatewayClient(url?: string): GatewayClient {
+  if (!url) {
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    url = `${protocol}//${location.hostname}:18789`;
+  }
   return new GatewayClient(url);
 }
 

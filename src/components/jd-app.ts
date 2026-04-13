@@ -67,7 +67,10 @@ interface AppState {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const GATEWAY_URL = 'ws://localhost:18789';
+const GATEWAY_URL = (() => {
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${location.hostname}:18789`;
+})();
 const GATEWAY_TOKEN_STORAGE_KEY = 'jdclaw.gateway.token';
 const RECONNECT_MAX = 5;
 const SESSIONS_POLL_INTERVAL = 5000;

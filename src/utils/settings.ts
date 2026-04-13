@@ -3,8 +3,13 @@ import { storage } from './index.js';
 
 export const STORAGE_KEY = 'jdclaw.settings';
 
+function getDefaultGatewayUrl(): string {
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${location.hostname}:18789`;
+}
+
 export const DEFAULT_SETTINGS: AppSettings = {
-  gatewayUrl: 'ws://localhost:18789',
+  gatewayUrl: getDefaultGatewayUrl(),
   theme: 'dark',
   language: 'zh-CN',
   fontSize: 'medium',
