@@ -1525,6 +1525,10 @@ export class JdApp extends LitElement {
             .focusMode=${this.focusMode}
             .toolStreamEntries=${this.toolStreamEntries}
             .chatStreamSegments=${this.chatStreamSegments}
+            .agents=${this.agents}
+            .selectedAgentId=${this.selectedAgentId}
+            .models=${this.models}
+            .selectedModel=${this.selectedModel}
             @send=${(e: CustomEvent) => {
               this.appState = { ...this.appState, chatMessage: e.detail };
               this.handleSend();
@@ -1534,6 +1538,8 @@ export class JdApp extends LitElement {
             @retry-message=${() => this.handleRetryMessage()}
             @copy-success=${() => this.handleCopySuccess()}
             @slash-command=${(e: CustomEvent) => this.handleSlashCommand(e)}
+            @agent-change=${(e: CustomEvent) => this.handleAgentChange(e.detail)}
+            @model-change=${(e: CustomEvent) => this.handleModelChange(e.detail)}
           ></jd-chat-view>
         `;
     }
@@ -1611,45 +1617,14 @@ export class JdApp extends LitElement {
               >
                 ${icons.menu}
               </button>
-              ${this.currentRoute === 'chat' ? html`
-                ${this.agents.length > 1 ? html`
-                  <select
-                    class="jd-topbar__agent-select"
-                    .value=${this.selectedAgentId}
-                    @change=${(e: Event) => this.handleAgentChange((e.target as HTMLSelectElement).value)}
-                  >
-                    ${this.agents.map(a => html`
-                      <option value=${a.id} ?selected=${a.id === this.selectedAgentId}>
-                        ${a.identity?.emoji ? a.identity.emoji + ' ' : ''}${a.name || a.identity?.name || a.id}
-                      </option>
-                    `)}
-                  </select>
-                ` : html`
-                  <span class="jd-topbar__title">
-                    ${this.agents.find(a => a.id === this.selectedAgentId)?.name
-                      || this.agents.find(a => a.id === this.selectedAgentId)?.identity?.name
-                      || 'JDClaw 助手'}
-                  </span>
-                `}
-              ` : html`
-                <span class="jd-topbar__title">
-                  ${this.currentRoute === 'sessions' ? '会话管理'
-                    : this.currentRoute === 'agents' ? '助手管理'
-                    : this.currentRoute === 'settings' ? '设置'
-                    : 'JDClaw'}
-                </span>
-              `}
-              ${this.models.length > 0 ? html`
-                <select
-                  class="jd-topbar__model-select"
-                  .value=${this.selectedModel}
-                  @change=${(e: Event) => this.handleModelChange((e.target as HTMLSelectElement).value)}
-                >
-                  ${this.models.map(m => html`
-                    <option value=${m.id} ?selected=${m.id === this.selectedModel}>${m.name}</option>
-                  `)}
-                </select>
-              ` : nothing}
+              <span class="jd-topbar__title">
+                ${this.currentRoute === 'chat'
+                  ? (this.appState.sessions.find(s => s.key === this.appState.sessionKey)?.displayName || '聊天')
+                  : this.currentRoute === 'sessions' ? '会话管理'
+                  : this.currentRoute === 'agents' ? '助手管理'
+                  : this.currentRoute === 'settings' ? '设置'
+                  : 'JDClaw'}
+              </span>
             </div>
             <div class="jd-topbar__center">
               <div class="jd-topbar__status">

@@ -3,7 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import type { Message, Attachment, ToolStreamEntry, ChatStreamSegment } from '../types/index.js';
+import type { Message, Attachment, ToolStreamEntry, ChatStreamSegment, Agent, Model } from '../types/index.js';
 import { copyToClipboard } from '../utils/index.js';
 import './jd-tool-card.js';
 import './jd-slash-menu.js';
@@ -58,6 +58,10 @@ export class JDChatView extends LitElement {
   @property({ type: Boolean }) focusMode = false;
   @property({ type: Array }) toolStreamEntries: ToolStreamEntry[] = [];
   @property({ type: Array }) chatStreamSegments: ChatStreamSegment[] = [];
+  @property({ type: Array }) agents: Agent[] = [];
+  @property({ type: String }) selectedAgentId = '';
+  @property({ type: Array }) models: Model[] = [];
+  @property({ type: String }) selectedModel = '';
 
   @state() private inputValue = '';
   @state() private copiedMessageId: string | null = null;
@@ -412,6 +416,42 @@ export class JDChatView extends LitElement {
         <div class="chat-split-container">
           <div class="chat-main">
             <div class="chat-thread">
+              <div class="chat-selectors">
+                <div class="chat-selector">
+                  <select
+                    class="chat-selector__select"
+                    .value=${this.selectedAgentId}
+                    @change=${(e: Event) => this.dispatchEvent(new CustomEvent('agent-change', {
+                      detail: (e.target as HTMLSelectElement).value,
+                      bubbles: true, composed: true,
+                    }))}
+                  >
+                    ${this.agents.length === 0 ? html`<option>JDClaw 助手</option>` : nothing}
+                    ${this.agents.map(a => html`
+                      <option value=${a.id} ?selected=${a.id === this.selectedAgentId}>
+                        ${a.identity?.emoji ? a.identity.emoji + ' ' : ''}${a.name || a.identity?.name || a.id}
+                      </option>
+                    `)}
+                  </select>
+                </div>
+                <div class="chat-selector">
+                  <select
+                    class="chat-selector__select"
+                    .value=${this.selectedModel}
+                    @change=${(e: Event) => this.dispatchEvent(new CustomEvent('model-change', {
+                      detail: (e.target as HTMLSelectElement).value,
+                      bubbles: true, composed: true,
+                    }))}
+                  >
+                    ${this.models.length === 0 ? html`<option>默认模型</option>` : nothing}
+                    ${this.models.map(m => html`
+                      <option value=${m.id} ?selected=${m.id === this.selectedModel}>
+                        ${m.name}${m.provider ? '  ·  ' + m.provider : ''}
+                      </option>
+                    `)}
+                  </select>
+                </div>
+              </div>
               ${hasMessages ? html`
                 ${groups.map((group, idx) => {
                   const isLastAssistantGroup = idx === lastAssistantGroupIdx;
