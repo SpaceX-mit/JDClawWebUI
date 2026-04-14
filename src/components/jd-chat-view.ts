@@ -414,18 +414,16 @@ export class JDChatView extends LitElement {
     return agent.name || agent.identity?.name || agentId;
   }
 
-  /** Extract agentId from session key. Handles "agent:{id}:{rest}" and "{agentId}:{rest}" */
+  /** Extract agentId from session key */
   private parseAgentFromKey(key: string): string {
     const lower = key.toLowerCase();
-    // Format: "agent:{agentId}:{rest}"
     if (lower.startsWith('agent:')) {
       const parts = lower.split(':').filter(Boolean);
       return parts.length >= 3 ? parts[1] : '';
     }
-    // Try matching against known agent ids as prefix
     for (const agent of this.agents) {
-      const prefix = agent.id.toLowerCase() + ':';
-      if (lower.startsWith(prefix) || lower === agent.id.toLowerCase()) {
+      const aid = agent.id.toLowerCase();
+      if (lower === aid || lower.startsWith(aid + ':')) {
         return agent.id;
       }
     }
@@ -433,7 +431,7 @@ export class JDChatView extends LitElement {
   }
 
   private renderSessionOptions() {
-    // Build agent → sessions mapping
+    // Group sessions by agent
     const agentSessions = new Map<string, SidebarSessionItem[]>();
     const ungrouped: SidebarSessionItem[] = [];
 
@@ -450,45 +448,38 @@ export class JDChatView extends LitElement {
 
     const result: unknown[] = [];
 
-    // Render each agent as a group label + its sessions
     for (const agent of this.agents) {
       const sessions = agentSessions.get(agent.id) || [];
       const agentLabel = agent.name || agent.identity?.name || agent.id;
-      const emoji = agent.identity?.emoji ? agent.identity.emoji + ' ' : '';
 
-      // Find the agent's "main" session key to make the agent label selectable
-      const mainKey = sessions.find(s => {
-        const k = s.key.toLowerCase();
-        return k === `agent:${agent.id}:main` || k === agent.id || k === `${agent.id}:main`;
-      })?.key || sessions[0]?.key || '';
+      if (sessions.length === 0) continue;
 
+      // Agent group header (disabled, just a label)
       result.push(html`
-        <option
-          value=${mainKey}
-          ?selected=${mainKey === this.currentSessionKey}
-          ?disabled=${!mainKey}
-          class="chat-selector__agent-label"
-        >${emoji}${agentLabel}</option>
+        <option disabled class="chat-selector__group-label">── ${agentLabel} ──</option>
       `);
 
-      // Sub-sessions (skip the one already used as main)
       for (const s of sessions) {
-        if (s.key === mainKey) continue;
         result.push(html`
           <option value=${s.key} ?selected=${s.key === this.currentSessionKey}>
-            ${'    '}${s.displayName || s.title || s.key}
+            ${s.displayName || s.title || s.key}
           </option>
         `);
       }
     }
 
-    // Ungrouped sessions at the bottom
-    for (const s of ungrouped) {
-      result.push(html`
-        <option value=${s.key} ?selected=${s.key === this.currentSessionKey}>
-          ${s.displayName || s.title || s.key}
-        </option>
-      `);
+    // Ungrouped sessions
+    if (ungrouped.length > 0) {
+      if (result.length > 0) {
+        result.push(html`<option disabled class="chat-selector__group-label">──────</option>`);
+      }
+      for (const s of ungrouped) {
+        result.push(html`
+          <option value=${s.key} ?selected=${s.key === this.currentSessionKey}>
+            ${s.displayName || s.title || s.key}
+          </option>
+        `);
+      }
     }
 
     return result;
