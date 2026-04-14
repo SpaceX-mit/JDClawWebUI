@@ -535,8 +535,6 @@ export class JdApp extends LitElement {
 
     console.log('[JdApp] Sending sessions.list request');
     this.sendRequest('sessions.list', {
-      activeMinutes: 120,
-      limit: 50,
       includeGlobal: true,
       includeUnknown: true,
     });
@@ -609,8 +607,23 @@ export class JdApp extends LitElement {
           this.requestSessions();
           return;
         case 'health':
-        case 'tick':
+        case 'tick': {
+          // health event may carry session keys — use as fallback if sessions.list is empty
+          if (eventName === 'health' && isRecord(payload.sessions)) {
+            const sessionKeys = Object.keys(payload.sessions);
+            if (sessionKeys.length > 0 && this.appState.sessions.length === 0) {
+              const sessions = sessionKeys.map(key => ({
+                key,
+                displayName: typeof (payload.sessions as Record<string, unknown>)[key] === 'string'
+                  ? (payload.sessions as Record<string, unknown>)[key] as string
+                  : undefined,
+              })) as GatewaySessionRow[];
+              console.log('[JdApp] health sessions fallback:', sessionKeys);
+              this.appState = { ...this.appState, sessions };
+            }
+          }
           return;
+        }
         default:
           console.log('[JdApp] Unhandled event type:', eventName, payload);
           return;
