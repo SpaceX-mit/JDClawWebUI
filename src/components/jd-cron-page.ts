@@ -155,8 +155,10 @@ export class JdCronPage extends LitElement {
     }
 
     if (this.editingJob) {
+      console.log('[CronPage] cron.update params:', JSON.stringify({ id: this.editingJob.id, patch: params }, null, 2));
       this.sendRequest('cron.update', { id: this.editingJob.id, patch: params });
     } else {
+      console.log('[CronPage] cron.add params:', JSON.stringify(params, null, 2));
       this.sendRequest('cron.add', params);
     }
   }
