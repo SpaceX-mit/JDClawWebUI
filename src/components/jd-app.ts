@@ -696,6 +696,12 @@ export class JdApp extends LitElement {
     }
 
     this.pushSystemMessage(`${method || '请求'}失败：${message}`);
+
+    // Also notify cron page of errors
+    if (method.startsWith('cron.')) {
+      const cronPage = this.querySelector('jd-cron-page') as import('./jd-cron-page.js').JdCronPage | null;
+      cronPage?.handleError(method, message);
+    }
   }
 
   private handleResponse(

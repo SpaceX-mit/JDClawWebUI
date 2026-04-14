@@ -77,6 +77,12 @@ export class JdCronPage extends LitElement {
     }
   }
 
+  handleError(method: string, message: string) {
+    console.error(`[CronPage] ${method} error:`, message);
+    this.loading = false;
+    this.runsLoading = false;
+  }
+
   private resetForm() {
     this.formName = '';
     this.formDescription = '';
@@ -124,27 +130,34 @@ export class JdCronPage extends LitElement {
 
   private handleSubmit() {
     if (!this.formName.trim()) return;
+    if (!this.formPayloadText.trim()) return;
 
     const schedule: CronSchedule =
-      this.formScheduleKind === 'at' ? { kind: 'at', at: this.formScheduleAt }
+      this.formScheduleKind === 'at' ? { kind: 'at', at: new Date(this.formScheduleAt).toISOString() }
       : this.formScheduleKind === 'every' ? { kind: 'every', everyMs: this.formEveryMs }
       : { kind: 'cron', expr: this.formCronExpr, ...(this.formCronTz ? { tz: this.formCronTz } : {}) };
 
     const payload: CronPayload =
       this.formPayloadKind === 'agentTurn'
-        ? { kind: 'agentTurn', message: this.formPayloadText }
-        : { kind: 'systemEvent', text: this.formPayloadText };
+        ? { kind: 'agentTurn', message: this.formPayloadText.trim() }
+        : { kind: 'systemEvent', text: this.formPayloadText.trim() };
+
+    const params: Record<string, unknown> = {
+      name: this.formName.trim(),
+      enabled: this.formEnabled,
+      schedule,
+      payload,
+      sessionTarget: this.formSessionTarget,
+      wakeMode: this.formWakeMode,
+    };
+    if (this.formDescription.trim()) {
+      params.description = this.formDescription.trim();
+    }
 
     if (this.editingJob) {
-      this.sendRequest('cron.update', {
-        id: this.editingJob.id,
-        patch: { name: this.formName, description: this.formDescription, enabled: this.formEnabled, schedule, payload, sessionTarget: this.formSessionTarget, wakeMode: this.formWakeMode },
-      });
+      this.sendRequest('cron.update', { id: this.editingJob.id, patch: params });
     } else {
-      this.sendRequest('cron.add', {
-        name: this.formName, description: this.formDescription, enabled: this.formEnabled,
-        schedule, payload, sessionTarget: this.formSessionTarget, wakeMode: this.formWakeMode,
-      });
+      this.sendRequest('cron.add', params);
     }
   }
 
@@ -247,7 +260,7 @@ export class JdCronPage extends LitElement {
           </label>
           <div class="cron-form__actions">
             <button class="btn btn--secondary" @click=${() => this.showForm = false}>取消</button>
-            <button class="btn btn--primary" @click=${() => this.handleSubmit()} ?disabled=${!this.formName.trim()}>
+            <button class="btn btn--primary" @click=${() => this.handleSubmit()} ?disabled=${!this.formName.trim() || !this.formPayloadText.trim()}>
               ${this.editingJob ? '保存' : '创建'}
             </button>
           </div>
