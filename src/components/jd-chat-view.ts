@@ -414,58 +414,81 @@ export class JDChatView extends LitElement {
     return agent.name || agent.identity?.name || agentId;
   }
 
-  /** Parse session key: "agent:{agentId}:{rest}" → agentId, else "" */
+  /** Extract agentId from session key. Handles "agent:{id}:{rest}" and "{agentId}:{rest}" */
   private parseAgentFromKey(key: string): string {
     const lower = key.toLowerCase();
-    if (!lower.startsWith('agent:')) return '';
-    const parts = lower.split(':').filter(Boolean);
-    // parts[0]="agent", parts[1]=agentId, parts[2..]=rest
-    return parts.length >= 3 ? parts[1] : '';
+    // Format: "agent:{agentId}:{rest}"
+    if (lower.startsWith('agent:')) {
+      const parts = lower.split(':').filter(Boolean);
+      return parts.length >= 3 ? parts[1] : '';
+    }
+    // Try matching against known agent ids as prefix
+    for (const agent of this.agents) {
+      const prefix = agent.id.toLowerCase() + ':';
+      if (lower.startsWith(prefix) || lower === agent.id.toLowerCase()) {
+        return agent.id;
+      }
+    }
+    return '';
   }
 
   private renderSessionOptions() {
-    // Group sessions by agent id extracted from key format "agent:{agentId}:{rest}"
-    const grouped = new Map<string, SidebarSessionItem[]>();
-
-    // Ensure all known agents have a group (even if no sessions yet)
-    for (const agent of this.agents) {
-      if (!grouped.has(agent.id)) grouped.set(agent.id, []);
-    }
+    // Build agent → sessions mapping
+    const agentSessions = new Map<string, SidebarSessionItem[]>();
+    const ungrouped: SidebarSessionItem[] = [];
 
     for (const s of this.sessions) {
       const agentId = this.parseAgentFromKey(s.key);
-      const groupKey = agentId || '_ungrouped';
-      const group = grouped.get(groupKey) || [];
-      group.push(s);
-      grouped.set(groupKey, group);
+      if (agentId) {
+        const group = agentSessions.get(agentId) || [];
+        group.push(s);
+        agentSessions.set(agentId, group);
+      } else {
+        ungrouped.push(s);
+      }
     }
 
     const result: unknown[] = [];
 
-    for (const [agentId, sessions] of grouped) {
-      if (agentId === '_ungrouped') continue; // render ungrouped last
-      const label = this.getAgentLabel(agentId);
-      result.push(html`
-        <optgroup label=${label}>
-          ${sessions.map(s => html`
-            <option value=${s.key} ?selected=${s.key === this.currentSessionKey}>
-              ${s.displayName || s.title || s.key}
-            </option>
-          `)}
-        </optgroup>
-      `);
-    }
+    // Render each agent as a group label + its sessions
+    for (const agent of this.agents) {
+      const sessions = agentSessions.get(agent.id) || [];
+      const agentLabel = agent.name || agent.identity?.name || agent.id;
+      const emoji = agent.identity?.emoji ? agent.identity.emoji + ' ' : '';
 
-    // Ungrouped sessions (keys not matching "agent:..." format)
-    const ungrouped = grouped.get('_ungrouped');
-    if (ungrouped && ungrouped.length > 0) {
-      for (const s of ungrouped) {
+      // Find the agent's "main" session key to make the agent label selectable
+      const mainKey = sessions.find(s => {
+        const k = s.key.toLowerCase();
+        return k === `agent:${agent.id}:main` || k === agent.id || k === `${agent.id}:main`;
+      })?.key || sessions[0]?.key || '';
+
+      result.push(html`
+        <option
+          value=${mainKey}
+          ?selected=${mainKey === this.currentSessionKey}
+          ?disabled=${!mainKey}
+          class="chat-selector__agent-label"
+        >${emoji}${agentLabel}</option>
+      `);
+
+      // Sub-sessions (skip the one already used as main)
+      for (const s of sessions) {
+        if (s.key === mainKey) continue;
         result.push(html`
           <option value=${s.key} ?selected=${s.key === this.currentSessionKey}>
-            ${s.displayName || s.title || s.key}
+            ${'    '}${s.displayName || s.title || s.key}
           </option>
         `);
       }
+    }
+
+    // Ungrouped sessions at the bottom
+    for (const s of ungrouped) {
+      result.push(html`
+        <option value=${s.key} ?selected=${s.key === this.currentSessionKey}>
+          ${s.displayName || s.title || s.key}
+        </option>
+      `);
     }
 
     return result;
