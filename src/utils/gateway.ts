@@ -312,3 +312,33 @@ export async function sessionsDelete(client: GatewayClient, params: SessionsDele
 }> {
   return client.request('sessions.delete', params) as Promise<{ ok: boolean }>;
 }
+
+// ─── Cron / Scheduled Tasks ──────────────────────────────────────────────────
+
+export async function cronStatus(client: GatewayClient): Promise<unknown> {
+  return client.request('cron.status', {});
+}
+
+export async function cronList(client: GatewayClient, params?: Record<string, unknown>): Promise<unknown> {
+  return client.request('cron.list', params ?? {});
+}
+
+export async function cronAdd(client: GatewayClient, job: Record<string, unknown>): Promise<unknown> {
+  return client.request('cron.add', job);
+}
+
+export async function cronUpdate(client: GatewayClient, id: string, patch: Record<string, unknown>): Promise<unknown> {
+  return client.request('cron.update', { id, patch });
+}
+
+export async function cronRemove(client: GatewayClient, id: string): Promise<unknown> {
+  return client.request('cron.remove', { id });
+}
+
+export async function cronRun(client: GatewayClient, id: string, mode?: 'force' | 'due'): Promise<unknown> {
+  return client.request('cron.run', { id, mode: mode ?? 'force' });
+}
+
+export async function cronRuns(client: GatewayClient, params: Record<string, unknown>): Promise<unknown> {
+  return client.request('cron.runs', params);
+}

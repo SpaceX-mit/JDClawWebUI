@@ -372,3 +372,65 @@ export interface ExecApprovalRequest {
   expiresAt: number;
   timestamp: number;
 }
+
+// ============================================
+// Cron / Scheduled Tasks Types
+// ============================================
+
+export type CronSchedule =
+  | { kind: 'at'; at: string }
+  | { kind: 'every'; everyMs: number; anchorMs?: number }
+  | { kind: 'cron'; expr: string; tz?: string; staggerMs?: number };
+
+export type CronSessionTarget = 'main' | 'isolated' | 'current' | `session:${string}`;
+export type CronWakeMode = 'next-heartbeat' | 'now';
+
+export type CronPayload =
+  | { kind: 'systemEvent'; text: string }
+  | { kind: 'agentTurn'; message: string; model?: string; thinking?: string; timeoutSeconds?: number };
+
+export interface CronJobState {
+  nextRunAtMs?: number;
+  runningAtMs?: number;
+  lastRunAtMs?: number;
+  lastRunStatus?: 'ok' | 'error' | 'skipped';
+  lastError?: string;
+  lastDurationMs?: number;
+  consecutiveErrors?: number;
+}
+
+export interface CronJob {
+  id: string;
+  agentId?: string;
+  sessionKey?: string;
+  name: string;
+  description?: string;
+  enabled: boolean;
+  deleteAfterRun?: boolean;
+  createdAtMs: number;
+  updatedAtMs: number;
+  schedule: CronSchedule;
+  sessionTarget: CronSessionTarget;
+  wakeMode: CronWakeMode;
+  payload: CronPayload;
+  state?: CronJobState;
+}
+
+export interface CronStatus {
+  enabled: boolean;
+  jobs: number;
+  nextWakeAtMs?: number | null;
+}
+
+export interface CronRunLogEntry {
+  ts: number;
+  jobId: string;
+  action?: string;
+  status?: 'ok' | 'error' | 'skipped';
+  durationMs?: number;
+  error?: string;
+  summary?: string;
+  sessionKey?: string;
+  model?: string;
+  jobName?: string;
+}

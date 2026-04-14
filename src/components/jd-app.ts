@@ -27,6 +27,7 @@ import './jd-chat-view.js';
 import './jd-tool-card.js';
 import './jd-settings-panel.js';
 import './jd-sessions-view.js';
+import './jd-cron-page.js';
 import './jd-approval-dialog.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -884,8 +885,14 @@ export class JdApp extends LitElement {
         return;
       }
 
-      default:
+      default: {
+        // Route cron.* responses to the cron page component
+        if (method.startsWith('cron.') && payload) {
+          const cronPage = this.querySelector('jd-cron-page') as import('./jd-cron-page.js').JdCronPage | null;
+          cronPage?.handleResponse(method, payload);
+        }
         return;
+      }
     }
   }
 
@@ -1527,6 +1534,12 @@ export class JdApp extends LitElement {
             `}
           </div>
         `;
+      case 'cron':
+        return html`
+          <jd-cron-page
+            .sendRequest=${(method: string, params: Record<string, unknown>) => this.sendRequest(method, params)}
+          ></jd-cron-page>
+        `;
       case 'chat':
       default:
         return html`
@@ -1639,6 +1652,7 @@ export class JdApp extends LitElement {
                   ? (this.appState.sessions.find(s => s.key === this.appState.sessionKey)?.displayName || '聊天')
                   : this.currentRoute === 'sessions' ? '会话管理'
                   : this.currentRoute === 'agents' ? '助手管理'
+                  : this.currentRoute === 'cron' ? '定时任务'
                   : this.currentRoute === 'settings' ? '设置'
                   : 'JDClaw'}
               </span>

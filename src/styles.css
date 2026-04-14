@@ -491,6 +491,119 @@ jd-chat-view {
   flex-shrink: 0;
 }
 
+/* ── Cron Page ───────────────────────────────────────────────────────────── */
+
+.jd-cron-page {
+  padding: 24px;
+  max-width: 800px;
+  margin: 0 auto;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.cron-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.cron-header h2 { font-size: 20px; font-weight: 600; margin: 0; }
+
+.cron-header__actions { display: flex; gap: 8px; }
+
+.cron-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.cron-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+}
+.cron-badge--ok { background: var(--ok-subtle); color: var(--success); }
+.cron-badge--error { background: var(--danger-subtle); color: var(--danger); }
+.cron-badge--skip { background: var(--warn-subtle); color: var(--warning); }
+
+.cron-loading, .cron-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+.cron-job-list { display: flex; flex-direction: column; gap: 8px; }
+
+.cron-job-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  padding: 14px 16px;
+  transition: border-color 0.15s;
+}
+.cron-job-card:hover { border-color: var(--border-strong); }
+.cron-job-card.disabled { opacity: 0.6; }
+
+.cron-job-card__main { display: flex; align-items: flex-start; gap: 12px; }
+.cron-job-card__info { flex: 1; min-width: 0; }
+.cron-job-card__name { font-weight: 600; font-size: 14px; }
+.cron-job-card__desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.cron-job-card__meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+.cron-job-card__actions { display: flex; gap: 4px; flex-shrink: 0; }
+.cron-job-card__error { margin-top: 8px; padding: 6px 10px; background: var(--danger-subtle); color: var(--danger); border-radius: var(--radius-sm); font-size: 12px; }
+
+/* Cron Form */
+.cron-form-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+}
+.cron-form {
+  background: var(--card); border-radius: var(--radius-lg); padding: 24px;
+  width: 90%; max-width: 520px; max-height: 85vh; overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.cron-form h3 { margin: 0 0 4px; font-size: 18px; }
+.cron-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+.cron-form input[type="text"],
+.cron-form input[type="number"],
+.cron-form input[type="datetime-local"],
+.cron-form textarea,
+.cron-form select {
+  padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-secondary); color: var(--text-primary); font-size: 14px; font-family: inherit;
+  outline: none;
+}
+.cron-form input:focus, .cron-form textarea:focus, .cron-form select:focus { border-color: var(--accent); }
+.cron-form fieldset { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; }
+.cron-form legend { font-size: 13px; font-weight: 600; color: var(--text-secondary); padding: 0 6px; }
+.cron-form__radio-row { display: flex; gap: 16px; margin-bottom: 8px; font-size: 13px; }
+.cron-form__radio-row label { flex-direction: row; align-items: center; gap: 4px; }
+.cron-form__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+/* Cron Runs */
+.cron-runs { margin-top: 16px; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; background: var(--card); }
+.cron-runs__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.cron-runs__header h4 { margin: 0; font-size: 15px; }
+.cron-runs__loading, .cron-runs__empty { text-align: center; padding: 16px; color: var(--text-muted); font-size: 13px; }
+.cron-run-item { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.cron-run-item:last-child { border-bottom: none; }
+.cron-run-item__time { color: var(--text-muted); min-width: 120px; }
+.cron-run-item__duration { color: var(--text-muted); }
+.cron-run-item__error { color: var(--danger); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cron-run-item__summary { color: var(--text-secondary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .jd-chat__messages {
   flex: 1;
   overflow-y: auto;
