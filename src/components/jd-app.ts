@@ -729,6 +729,7 @@ export class JdApp extends LitElement {
         const sessions = Array.isArray(payload.sessions)
           ? (payload.sessions as GatewaySessionRow[])
           : [];
+        console.log('[JdApp] sessions.list:', sessions.length, 'sessions, keys:', sessions.map(s => s.key));
         this.appState = { ...this.appState, sessions };
         this.sessionsResult = payload as unknown as SessionsListResult;
 
