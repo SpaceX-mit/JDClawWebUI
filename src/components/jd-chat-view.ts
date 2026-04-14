@@ -408,31 +408,9 @@ export class JDChatView extends LitElement {
     `;
   }
 
-  private getAgentLabel(agentId: string): string {
-    const agent = this.agents.find(a => a.id === agentId);
-    if (!agent) return agentId;
-    return agent.name || agent.identity?.name || agentId;
-  }
-
-  /** Extract agentId from session key */
-  private parseAgentFromKey(key: string): string {
-    const lower = key.toLowerCase();
-    if (lower.startsWith('agent:')) {
-      const parts = lower.split(':').filter(Boolean);
-      return parts.length >= 3 ? parts[1] : '';
-    }
-    for (const agent of this.agents) {
-      const aid = agent.id.toLowerCase();
-      if (lower === aid || lower.startsWith(aid + ':')) {
-        return agent.id;
-      }
-    }
-    return '';
-  }
-
   private renderSessionOptions() {
-    // If no sessions, show all agents as selectable options
-    if (this.sessions.length === 0) {
+    // Simply list all sessions as selectable options
+    if (this.sessions.length === 0 && this.agents.length > 0) {
       return this.agents.map(a => html`
         <option value=${a.id}>
           ${a.identity?.emoji ? a.identity.emoji + ' ' : ''}${a.name || a.identity?.name || a.id}
@@ -440,49 +418,11 @@ export class JDChatView extends LitElement {
       `);
     }
 
-    // Group sessions by agent
-    const agentSessions = new Map<string, SidebarSessionItem[]>();
-    const ungrouped: SidebarSessionItem[] = [];
-
-    for (const s of this.sessions) {
-      const agentId = this.parseAgentFromKey(s.key);
-      if (agentId) {
-        const group = agentSessions.get(agentId) || [];
-        group.push(s);
-        agentSessions.set(agentId, group);
-      } else {
-        ungrouped.push(s);
-      }
-    }
-
-    const result: unknown[] = [];
-
-    for (const agent of this.agents) {
-      const sessions = agentSessions.get(agent.id) || [];
-      if (sessions.length === 0) continue;
-      const agentLabel = agent.name || agent.identity?.name || agent.id;
-
-      for (const s of sessions) {
-        const sessionName = s.displayName || s.title || s.key;
-        // Show agent prefix for clarity when multiple agents exist
-        const label = this.agents.length > 1
-          ? `${agentLabel} › ${sessionName}`
-          : sessionName;
-        result.push(html`
-          <option value=${s.key} ?selected=${s.key === this.currentSessionKey}>${label}</option>
-        `);
-      }
-    }
-
-    for (const s of ungrouped) {
-      result.push(html`
-        <option value=${s.key} ?selected=${s.key === this.currentSessionKey}>
-          ${s.displayName || s.title || s.key}
-        </option>
-      `);
-    }
-
-    return result;
+    return this.sessions.map(s => html`
+      <option value=${s.key} ?selected=${s.key === this.currentSessionKey}>
+        ${s.displayName || s.title || s.key}
+      </option>
+    `);
   }
 
   render() {
