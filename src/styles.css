@@ -998,12 +998,6 @@ jd-chat-view {
   box-shadow: 0 0 0 3px var(--accent-muted);
 }
 
-.chat-selector__group-label {
-  font-weight: 600;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
 .chat-compose {
   flex-shrink: 0;
   padding: 12px 12px 0;
